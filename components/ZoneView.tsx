@@ -23,8 +23,8 @@ function CardChofer({ c }: { c: CardT }) {
       </div>
       <div className="metric-row">
         <Tank icon="💧" label="Litros" pct={c.pct_lit} color={semaforoComp(c.pct_lit, t)} sub={`${miles(c.litros_hoy)} / ${miles(c.prom)} L`} />
-        <Tank icon="🏪" label="Locales" pct={c.pct_loc} color={semaforo(c.pct_loc, t)} sub={c.sub_loc} noAlcPct={c.no_alc_pct_loc ?? 0} />
-        {hasAlta && <Tank icon="⭐" label="Alta" pct={c.pct_alta} color={semaforo(c.pct_alta, t)} sub={c.sub_alta} noAlcPct={c.no_alc_pct_alta ?? 0} />}
+        <Tank icon="🏪" label="Locales" pct={c.pct_loc} color={semaforo(c.pct_loc, t)} sub={c.sub_loc} noAlcPct={c.no_alc_pct_loc ?? 0} noAlcN={c.no_alc_loc} />
+        {hasAlta && <Tank icon="⭐" label="Alta" pct={c.pct_alta} color={semaforo(c.pct_alta, t)} sub={c.sub_alta} noAlcPct={c.no_alc_pct_alta ?? 0} noAlcN={c.no_alc_alta} />}
       </div>
     </div>
   );
@@ -39,9 +39,9 @@ function CardCentro({ c }: { c: Centro }) {
       <div className="entity-head"><span className="entity-name">{c.centro}</span></div>
       <div className="metric-row">
         <Tank icon="💧" label="Litros" pct={pct(c.litros, c.prom)} color={semaforoComp(pct(c.litros, c.prom), t)} sub={`${miles(c.litros)} / ${miles(c.prom)} L`} />
-        <Tank icon="🏪" label="Locales" pct={pct(c.realizados, c.total)} color={semaforo(pct(c.realizados, c.total), t)} sub={`${c.realizados}/${c.total}`} noAlcPct={pct(c.no_alc ?? 0, c.total)} />
+        <Tank icon="🏪" label="Locales" pct={pct(c.realizados, c.total)} color={semaforo(pct(c.realizados, c.total), t)} sub={`${c.realizados}/${c.total}`} noAlcPct={pct(c.no_alc ?? 0, c.total)} noAlcN={c.no_alc} />
         {totalAlta > 0 && (
-          <Tank icon="⭐" label="Alta" pct={pct(c.realizados_alta ?? 0, totalAlta)} color={semaforo(pct(c.realizados_alta ?? 0, totalAlta), t)} sub={`${c.realizados_alta ?? 0}/${totalAlta}`} noAlcPct={pct(c.no_alc_alta ?? 0, totalAlta)} />
+          <Tank icon="⭐" label="Alta" pct={pct(c.realizados_alta ?? 0, totalAlta)} color={semaforo(pct(c.realizados_alta ?? 0, totalAlta), t)} sub={`${c.realizados_alta ?? 0}/${totalAlta}`} noAlcPct={pct(c.no_alc_alta ?? 0, totalAlta)} noAlcN={c.no_alc_alta} />
         )}
       </div>
     </div>

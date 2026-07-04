@@ -147,10 +147,30 @@ button, input, select, textarea, optgroup { font-family: inherit; }
 .kpi-legend { margin-top: 8px; display: flex; flex-wrap: wrap; justify-content: center; gap: 3px 10px; font-size: 11.5px; font-weight: 500; color: var(--text-2); }
 .kpi-legend .d { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
 
+/* Leyenda HTML del donut de desglose (carrusel): nombre + valor por segmento,
+   texto DOM nítido al zoom (el canvas solo dibuja el aro) */
+.donut-legend { margin-top: 10px; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 16px; }
+.donut-leg-item { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); }
+.donut-leg-dot { width: 10px; height: 10px; border-radius: 3px; flex: 0 0 auto; }
+.donut-leg-name { font-weight: 500; }
+.donut-leg-val { font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* Barras de efectividad por chofer (tab Rendimiento), 100% DOM/CSS */
+.rend-legend { display: flex; gap: 16px; justify-content: flex-end; margin-bottom: 12px; font-size: 12px; color: var(--text-2); }
+.rend-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.rend-dot { width: 10px; height: 10px; border-radius: 3px; }
+.rend-list { display: flex; flex-direction: column; gap: 10px; }
+.rend-row { display: grid; grid-template-columns: minmax(80px, 150px) 1fr auto; align-items: center; gap: 12px; }
+.rend-name { font-size: 12.5px; font-weight: 600; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rend-track { display: flex; height: 18px; border-radius: 6px; overflow: hidden; background: var(--grid); }
+.rend-seg { flex: 0 0 auto; height: 100%; }
+.rend-val { display: flex; align-items: baseline; gap: 5px; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rend-pct { color: var(--text); font-weight: 800; margin-left: 4px; min-width: 40px; text-align: right; }
+
 /* Píldoras de productos (card "Productos" de la fila de KPIs) */
 .prod-pills { height: 128px; display: flex; flex-direction: column; justify-content: space-around; gap: 6px; }
 .prod-pills.empty { align-items: center; justify-content: center; color: var(--muted); font-size: 13px; }
-.prod-pill { position: relative; min-height: 26px; flex: 1 1 0; display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 0 10px; border: 1.5px solid; border-radius: 8px; background: var(--surface-2); overflow: hidden; }
+.prod-pill { position: relative; min-height: 26px; max-height: 38px; flex: 1 1 0; display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 0 10px; border: 1.5px solid; border-radius: 8px; background: var(--surface-2); overflow: hidden; }
 .prod-fill { position: absolute; inset: 0 auto 0 0; border-radius: 6px 0 0 6px; }
 .prod-name, .prod-value { position: relative; z-index: 1; white-space: nowrap; }
 .prod-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 13.5px; font-weight: 700; }

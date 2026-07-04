@@ -8,19 +8,22 @@ import React from "react";
 // Arma el contenido del tooltip: desglosa el sub ("50/301" o "590 / 310 L") en
 // dos líneas etiquetadas —logrado (con su %) y esperado— más la línea de no
 // alcanzados si aplica. Si el sub no tiene ese formato, cae a "<label>: <pct>%".
-function buildTip(label: string, pct: number, sub: string | null | undefined, naPct: number): string {
+// La línea de no alcanzados muestra el conteo exacto (naN) cuando está disponible,
+// además del %.
+function buildTip(label: string, pct: number, sub: string | null | undefined, naPct: number, naN?: number): string {
   const s = (sub ?? "").trim();
   const m = s.match(/^([\d.,]+)\s*\/\s*([\d.,]+)(\s*L)?$/);
+  const naTxt = `No alcanzados: ${naN != null ? `${naN} · ` : ""}${Math.round(naPct)}%`;
   const lineas: string[] = [];
   if (m) {
     const unidad = m[3] ? " L" : "";
     const esLitros = !!m[3] || label.toLowerCase().includes("litro");
     lineas.push(`${esLitros ? "Recolectado" : "Realizados"}: ${m[1]}${unidad} · ${pct}%`);
-    if (naPct > 0) lineas.push(`No alcanzados: ${Math.round(naPct)}%`); // entre logrado y esperado
+    if (naPct > 0) lineas.push(naTxt); // entre logrado y esperado
     lineas.push(`${esLitros ? "Esperado" : "Esperados"}: ${m[2]}${unidad}`);
   } else {
     lineas.push(`${label}: ${pct}%`);
-    if (naPct > 0) lineas.push(`No alcanzados: ${Math.round(naPct)}%`);
+    if (naPct > 0) lineas.push(naTxt);
     if (s && s !== "—") lineas.push(s);
   }
   return lineas.join("\n");
@@ -33,6 +36,7 @@ export default function Tank({
   color,
   icon,
   noAlcPct = 0,
+  noAlcN,
   onDark = false,
 }: {
   label: string;
@@ -41,13 +45,14 @@ export default function Tank({
   color: string;
   icon?: string;
   noAlcPct?: number;
+  noAlcN?: number; // conteo exacto de no alcanzados (para el tooltip)
   onDark?: boolean; // sobre el hero oscuro: fondo translúcido y textos claros
 }) {
   const p = Math.max(0, Math.min(100, pct));
   const na = Math.max(0, Math.min(noAlcPct, 100 - p)); // rojo apilado sobre el fill
   const fill = `color-mix(in srgb, ${color} ${onDark ? 34 : 22}%, transparent)`;
   return (
-    <div className={`tank has-tip${onDark ? " on-dark" : ""}`} data-tip={buildTip(label, pct, sub, na)}>
+    <div className={`tank has-tip${onDark ? " on-dark" : ""}`} data-tip={buildTip(label, pct, sub, na, noAlcN)}>
       <div className="tank-body" style={{ borderColor: color }}>
         <div className="tank-fill" style={{ height: `${p}%`, background: fill }} />
         {na > 0 && <div className="tank-na" style={{ bottom: `${p}%`, height: `${na}%` }} />}

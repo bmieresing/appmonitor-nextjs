@@ -35,6 +35,8 @@ export interface Card {
   cerrado: boolean;
   no_alc_pct_loc?: number; // % rojo "no alcanzamos a pasar" sobre el tanque de locales
   no_alc_pct_alta?: number;
+  no_alc_loc?: number;     // conteo de "no alcanzamos a pasar" (locales), para el tooltip
+  no_alc_alta?: number;
 }
 
 export interface Centro {
@@ -83,6 +85,8 @@ export interface CarruselChofer {
   pct_loc: number;
   sub_loc: string | null;
   no_alc_pct_loc?: number;
+  no_alc_loc?: number;   // conteo de "no alcanzamos a pasar" (locales), para el tooltip
+  no_alc_alta?: number;
   pct_alta: number;
   sub_alta: string | null;
   no_alc_pct_alta?: number;

@@ -169,8 +169,8 @@ export default function CarruselView({ carrusel, initialChofer }: { carrusel: Ca
         </div>
         <div className="hero-metrics">
           <Tank icon="💧" label="Litros" pct={c.pct_lit} color="#8fe08f" sub={c.sub_lit} onDark />
-          <Tank icon="🏪" label="Locales" pct={c.pct_loc} color="#8fe08f" sub={c.sub_loc} noAlcPct={c.no_alc_pct_loc ?? 0} onDark />
-          {c.tiene_alta && <Tank icon="⭐" label="Alta" pct={c.pct_alta} color="#ffe08a" sub={c.sub_alta} noAlcPct={c.no_alc_pct_alta ?? 0} onDark />}
+          <Tank icon="🏪" label="Locales" pct={c.pct_loc} color="#8fe08f" sub={c.sub_loc} noAlcPct={c.no_alc_pct_loc ?? 0} noAlcN={c.no_alc_loc} onDark />
+          {c.tiene_alta && <Tank icon="⭐" label="Alta" pct={c.pct_alta} color="#ffe08a" sub={c.sub_alta} noAlcPct={c.no_alc_pct_alta ?? 0} noAlcN={c.no_alc_alta} onDark />}
           {c.emerg_total > 0 && <Tank icon="🚨" label="Emergencias" pct={c.pct_emerg} color="#ff9e9e" sub={c.sub_emerg} onDark />}
         </div>
       </div>
@@ -178,7 +178,18 @@ export default function CarruselView({ carrusel, initialChofer }: { carrusel: Ca
       <div className="grid-2">
         <div className="card card-pad">
           <div className="section-title" style={{ margin: "0 0 6px" }}>Desglose de visitas</div>
-          <ReactECharts option={breakdownDonutOption(segs, t)} height={260} />
+          <ReactECharts option={breakdownDonutOption(segs, t)} height={300} />
+          {/* Leyenda en HTML (nombre + valor por segmento): texto nítido al zoom,
+              el canvas solo dibuja el aro. */}
+          <div className="donut-legend">
+            {segs.filter((s) => s.value > 0).map((s) => (
+              <span key={s.name} className="donut-leg-item">
+                <span className="donut-leg-dot" style={{ background: s.color }} />
+                <span className="donut-leg-name">{s.name}</span>
+                <span className="donut-leg-val tnum">{miles(s.value)}</span>
+              </span>
+            ))}
+          </div>
           <div className="mini-kpis">
             {cajas.map(([color, val, lbl]) => (
               <div key={lbl} className="mini-kpi" style={{ background: color }}>
@@ -217,7 +228,7 @@ export default function CarruselView({ carrusel, initialChofer }: { carrusel: Ca
           📋 Detalle de recolecciones {detalle.length > 0 && <span style={{ color: "var(--muted)", fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>· {detFilt.length === detalle.length ? `${detalle.length} locales` : `${detFilt.length} de ${detalle.length}`}</span>}
         </div>
         {detalle.length === 0 ? <p className="muted">Sin datos de la ruta.</p> : (
-          <div className="tbl-wrap" style={{ maxHeight: 460, overflowY: "auto" }}>
+          <div className="tbl-wrap">
             <table className="data grid">
               <thead>
                 <tr>

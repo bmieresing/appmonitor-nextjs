@@ -45,40 +45,9 @@ export function kpiDonutOption(slices: KpiSlice[], t: Tokens): EOption {
   };
 }
 
-// Rendimiento: barras horizontales apiladas exitosas/fallidas por chofer.
-export function rendimientoOption(
-  filas: { chofer: string; exitosas: number; fallidas: number; pct: number }[],
-  t: Tokens
-): EOption {
-  const data = [...filas].reverse(); // peores abajo → mejores arriba
-  return {
-    grid: { left: 8, right: 24, top: 30, bottom: 8, containLabel: true },
-    legend: { data: ["Exitosas", "Fallidas"], top: 0, textStyle: { color: t.textSecondary }, itemWidth: 12, itemHeight: 12 },
-    tooltip: { trigger: "axis", axisPointer: { type: "shadow" }, ...tip(t) },
-    xAxis: { type: "value", axisLabel: { color: t.muted }, splitLine: { lineStyle: { color: t.grid } } },
-    yAxis: {
-      type: "category",
-      data: data.map((r) => r.chofer),
-      axisLine: { lineStyle: { color: t.axis } },
-      axisTick: { show: false },
-      axisLabel: { color: t.textSecondary, fontSize: 12 },
-    },
-    series: [
-      {
-        name: "Exitosas", type: "bar", stack: "t", data: data.map((r) => r.exitosas),
-        itemStyle: { color: t.good, borderRadius: [4, 0, 0, 4] }, barWidth: "62%",
-        label: { show: true, color: "#fff", fontWeight: 700, formatter: (o: any) => (o.value > 0 ? o.value : "") },
-      },
-      {
-        name: "Fallidas", type: "bar", stack: "t", data: data.map((r) => r.fallidas),
-        itemStyle: { color: t.critical, borderRadius: [0, 4, 4, 0] },
-        label: { show: true, color: "#fff", fontWeight: 700, formatter: (o: any) => (o.value > 0 ? o.value : "") },
-      },
-    ],
-  };
-}
-
-// Donut de desglose del carrusel (segmentos con valores absolutos + leyenda).
+// Donut de desglose del carrusel. Igual que kpiDonutOption: ECharts dibuja SOLO
+// el aro; los valores y la leyenda los pone CarruselView por HTML (nítidos a
+// cualquier zoom, sin texto rasterizado en el canvas).
 export function breakdownDonutOption(
   segs: { name: string; value: number; color: string }[],
   t: Tokens
@@ -87,16 +56,15 @@ export function breakdownDonutOption(
   return {
     animationDuration: 600,
     tooltip: { trigger: "item", ...tip(t), formatter: (o: any) => `${o.marker} ${o.name}: <b>${nf.format(o.value)}</b> · ${o.percent}%` },
-    legend: { bottom: 0, type: "scroll", textStyle: { color: t.textSecondary, fontSize: 11 }, itemWidth: 10, itemHeight: 10 },
     series: [
       {
         type: "pie",
         radius: ["52%", "78%"],
-        center: ["50%", "44%"],
+        center: ["50%", "50%"],
         avoidLabelOverlap: true,
         itemStyle: { borderColor: t.surface, borderWidth: 2, borderRadius: 4 },
-        label: { show: true, formatter: (o: any) => nf.format(o.value), color: t.text, fontSize: 11, fontWeight: 700 },
-        labelLine: { length: 8, length2: 6, lineStyle: { color: t.axis } },
+        label: { show: false },
+        labelLine: { show: false },
         data: vis.map((s) => ({ name: s.name, value: s.value, itemStyle: { color: s.color } })),
       },
     ],
