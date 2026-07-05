@@ -2,15 +2,21 @@
 // Hook de datos con dos caminos:
 //  · cargar()  → lee el snapshot materializado de Supabase (rápido). Corre en el
 //    poll automático cada 60 s.
-//  · refetch() → FUERZA un recálculo: pega a /api/refresh (que dispara el Lambda)
-//    y trae datos frescos (~30 s). Lo usa el botón "Actualizar".
+//  · refetch() → FUERZA un recálculo: invoca la RPC force_refresh() de Supabase
+//    (mismo net.http_post que el cron; el write-back lo hace el trigger). Como
+//    pg_net es asíncrono, el snapshot llega ~30 s después, así que tras disparar
+//    pulimos la tabla hasta ver un generated_at más nuevo. Lo usa "Actualizar".
+// Ya NO pega al Lambda directo: la URL/api-key del Lambda viven solo en Supabase.
 // Mantiene el último snapshot bueno mientras recarga (no parpadea) y nunca pisa
 // un snapshot más nuevo con uno más viejo (gana el de generated_at más reciente),
 // así el poll no revierte un recálculo recién forzado.
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Snapshot } from "@/lib/types";
+import { createClient } from "@/lib/supabase/client";
 
 const INTERVALO_MS = 60_000;
+const PULL_MS = 3_000;       // cada cuánto pulimos la tabla tras forzar
+const PULL_TIMEOUT_MS = 50_000; // el Lambda tarda ~30s; damos margen
 
 function ganaElNuevo(nuevo: Snapshot, actual: Snapshot | null): boolean {
   if (!actual) return true;
@@ -36,27 +42,51 @@ export function useSnapshot() {
     setError(null);
   }, []);
 
-  // marcarLoading: solo el recálculo forzado (botón) mueve el spinner. El poll
-  // de fondo NO lo toca — si no, un GET rápido que cae durante un refetch lento
-  // apagaría el spinner antes de que llegue el snapshot fresco.
-  const pedir = useCallback(async (endpoint: string, method: "GET" | "POST", marcarLoading: boolean) => {
-    if (marcarLoading) setLoading(true);
+  // Poll silencioso: lee la tabla materializada (no mueve el spinner).
+  const cargar = useCallback(async () => {
     try {
-      const r = await fetch(endpoint, { method, cache: "no-store" });
+      const r = await fetch("/api/snapshot", { cache: "no-store" });
       const body = await r.json().catch(() => null);
       if (!r.ok) throw new Error(body?.error || `HTTP ${r.status}`);
       aplicar(body as Snapshot);
     } catch (e) {
       if (vivo.current) setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      if (marcarLoading && vivo.current) setLoading(false);
     }
   }, [aplicar]);
 
-  // Poll silencioso: lee la tabla materializada (no mueve el spinner).
-  const cargar = useCallback(() => pedir("/api/snapshot", "GET", false), [pedir]);
-  // Botón: fuerza el recálculo contra el Lambda (spinner hasta que aplica datos).
-  const refetch = useCallback(() => pedir("/api/refresh", "POST", true), [pedir]);
+  // Botón: dispara la RPC y pule la tabla hasta que aparezca un snapshot más
+  // nuevo que el que teníamos (o se agote el tiempo). El spinner queda prendido
+  // toda esa ventana. Si se agota, no marca error: el poll de 60 s lo levanta.
+  const refetch = useCallback(async () => {
+    setLoading(true);
+    const previo = Date.parse(snapRef.current?.generated_at ?? "");
+    try {
+      const { error: rpcError } = await createClient().rpc("force_refresh");
+      if (rpcError) throw new Error(rpcError.message);
+
+      const limite = Date.now() + PULL_TIMEOUT_MS;
+      while (vivo.current && Date.now() < limite) {
+        await new Promise((r) => setTimeout(r, PULL_MS));
+        try {
+          const r = await fetch("/api/snapshot", { cache: "no-store" });
+          const body = await r.json().catch(() => null);
+          if (r.ok && body) {
+            const g = Date.parse((body as Snapshot).generated_at ?? "");
+            if (Number.isNaN(previo) || (!Number.isNaN(g) && g > previo)) {
+              aplicar(body as Snapshot);
+              return;
+            }
+          }
+        } catch {
+          // reintento en la próxima vuelta del pull
+        }
+      }
+    } catch (e) {
+      if (vivo.current) setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      if (vivo.current) setLoading(false);
+    }
+  }, [aplicar]);
 
   useEffect(() => {
     vivo.current = true;
