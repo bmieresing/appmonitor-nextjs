@@ -125,8 +125,8 @@ export default function CarruselView({ carrusel, initialChofer }: { carrusel: Ca
     const col = cols.find((c2) => c2.key === sortCol);
     detFilt = [...detFilt].sort((a, b) => {
       if (col?.num) {
-        const av = (a as Record<string, number>)[sortCol] ?? -Infinity;
-        const bv = (b as Record<string, number>)[sortCol] ?? -Infinity;
+        const av = Number((a as Record<string, unknown>)[sortCol] ?? -Infinity);
+        const bv = Number((b as Record<string, unknown>)[sortCol] ?? -Infinity);
         return (av - bv) * sortDir;
       }
       return celda(a, sortCol).localeCompare(celda(b, sortCol)) * sortDir;
