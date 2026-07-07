@@ -4,7 +4,9 @@
 // navegación vive arriba (no en un sidebar) para no robar ancho al dashboard.
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
+import AppMonitorLogo from "@/assets/AppMonitorLogo.png";
 import { SnapshotProvider, useSnap } from "./SnapshotContext";
 import { useTheme } from "./ThemeProvider";
 import { createClient } from "@/lib/supabase/client";
@@ -38,12 +40,8 @@ function TopBar() {
   const hayFalla = !!snap?.falla || (!!error && !snap);
   return (
     <header className="topbar">
-      <Link href="/global" className="brand">
-        <div className="brand-logo">🛢️</div>
-        <div>
-          <div className="brand-name">App Monitor</div>
-          <div className="brand-sub">Recolección · en vivo</div>
-        </div>
+      <Link href="/global" className="brand" aria-label="App Monitor — inicio">
+        <Image src={AppMonitorLogo} alt="Rendering Monitor" width={78} height={32} className="brand-img" priority />
       </Link>
       <nav className="topnav">
         {VISTAS.map(([label, href, ic]) => (

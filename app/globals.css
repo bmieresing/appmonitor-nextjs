@@ -75,14 +75,11 @@ button, input, select, textarea, optgroup { font-family: inherit; }
   border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
 }
-.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; flex: 0 0 auto; }
-.brand-logo {
-  width: 34px; height: 34px; border-radius: 9px; flex: 0 0 auto;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  display: grid; place-items: center; font-size: 18px; box-shadow: var(--shadow);
-}
-.brand-name { font-weight: 800; font-size: 15px; letter-spacing: -0.2px; }
-.brand-sub { font-size: 11px; color: var(--muted); }
+.brand { display: flex; align-items: center; text-decoration: none; flex: 0 0 auto; }
+/* Logo horizontal (swirl + "Rendering Monitor"), fondo transparente. En tema
+   oscuro el "Monitor" gris queda algo apagado; un leve realce lo compensa. */
+.brand-img { height: 32px; width: auto; display: block; }
+[data-theme="dark"] .brand-img { filter: brightness(1.12) saturate(1.05); }
 
 /* Navegación horizontal; crece para empujar las acciones a la derecha y
    scrollea en horizontal si no caben todas las tabs. */
@@ -124,6 +121,20 @@ button, input, select, textarea, optgroup { font-family: inherit; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .content { padding: 22px; }
+
+/* Estado activo de un botón-ícono (p. ej. pantalla completa encendida). */
+.icon-btn.active {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+/* ── Modo kiosco (pantalla completa) ────────────────────────────
+   Lo activa el botón ⛶ de los carruseles: oculta la barra superior y pega el
+   contenido al borde para aprovechar todo el alto en TV/monitores. */
+body.kiosk .topbar { display: none; }
+body.kiosk .content { padding: 10px 16px 16px; }
+body.kiosk .toolbar { margin-bottom: 10px; }
 
 /* ── Cards ──────────────────────────────────────────────────── */
 .card {
@@ -339,11 +350,11 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
   .hero-name { font-size: 26px; }
 }
 /* Móvil: menos padding de chrome, anillos y hero más compactos, y la barra
-   superior más apretada (la marca pierde el subtítulo para ganar ancho). */
+   superior más apretada. El logo se achica un poco para ganar ancho. */
 @media (max-width: 640px) {
   .content { padding: 13px; }
   .topbar { padding: 8px 13px; gap: 10px 8px; }
-  .brand-sub { display: none; }
+  .brand-img { height: 27px; }
   /* La navegación baja a su propia fila (scroll horizontal); marca + acciones
      quedan arriba, con las acciones empujadas a la derecha. Chip y botones más
      compactos para que todo entre en una sola fila. */

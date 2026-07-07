@@ -2,6 +2,7 @@
 // Carrusel Zonas: cicla Global → Santiago → Regiones cada 20 s.
 import { useEffect, useState } from "react";
 import ZoneView from "@/components/ZoneView";
+import FullscreenToggle from "@/components/FullscreenToggle";
 import { useSnap } from "@/components/SnapshotContext";
 import type { ZonaNombre } from "@/lib/types";
 
@@ -34,6 +35,7 @@ export default function CarruselZonasPage() {
         </div>
         <button className="icon-btn" onClick={() => setIdx((i) => (i + 1) % ZONAS.length)}>▶</button>
         <label className="sw"><input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> Auto</label>
+        <FullscreenToggle />
       </div>
       <ZoneView zona={snap.zonas[zona]} esGlobal={zona === "Global"} />
     </>

@@ -3,6 +3,7 @@
 // desglose (ECharts) y tablas/barras. Look profesional, tema-aware.
 import React, { useEffect, useMemo, useState } from "react";
 import ReactECharts from "./ReactECharts";
+import FullscreenToggle from "./FullscreenToggle";
 import Tank from "./Tank";
 import { useTheme } from "./ThemeProvider";
 import { breakdownDonutOption } from "@/lib/charts";
@@ -151,6 +152,7 @@ export default function CarruselView({ carrusel, initialChofer }: { carrusel: Ca
         <button className="icon-btn" onClick={() => setIdx((i) => (i - 1 + choferes.length) % choferes.length)}>◀</button>
         <button className="icon-btn" onClick={() => setIdx((i) => (i + 1) % choferes.length)}>▶</button>
         <label className="sw"><input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> Auto-avance</label>
+        <FullscreenToggle />
       </div>
 
       <div className="pills">
