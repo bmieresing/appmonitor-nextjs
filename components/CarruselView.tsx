@@ -210,16 +210,16 @@ export default function CarruselView({ carrusel, initialChofer }: { carrusel: Ca
                 : <BarTable cols={[{ key: "Local", label: "Local" }, { key: "Litros", label: "Litros", num: true }]} rows={locOrden.slice(0, 5)} valueKey="Litros" />}
             </div>
             <div className="card card-pad">
-              <div className="section-title" style={{ margin: "0 0 10px" }}>⚠️ Top 5 — Menos litros</div>
-              {locOrden.length === 0 ? <p className="muted">Sin datos</p>
-                : <BarTable cols={[{ key: "Local", label: "Local" }, { key: "Litros", label: "Litros", num: true }]} rows={locOrden.slice(-5).reverse()} valueKey="Litros" />}
+              <div className="section-title" style={{ margin: "0 0 10px" }}>🧴 Por producto</div>
+              {(c.productos ?? []).length === 0 ? <p className="muted">Sin datos</p>
+                : <BarTable cols={[{ key: "Producto", label: "Producto" }, { key: "Visitas", label: "Visitas", num: true }, { key: "Litros", label: "Litros", num: true }]} rows={c.productos} valueKey="Litros" />}
             </div>
           </div>
           <div className="lists-col">
             <div className="card card-pad">
-              <div className="section-title" style={{ margin: "0 0 10px" }}>🧴 Por producto</div>
-              {(c.productos ?? []).length === 0 ? <p className="muted">Sin datos</p>
-                : <BarTable cols={[{ key: "Producto", label: "Producto" }, { key: "Visitas", label: "Visitas", num: true }, { key: "Litros", label: "Litros", num: true }]} rows={c.productos} valueKey="Litros" />}
+              <div className="section-title" style={{ margin: "0 0 10px" }}>⚠️ Top 5 — Menos litros</div>
+              {locOrden.length === 0 ? <p className="muted">Sin datos</p>
+                : <BarTable cols={[{ key: "Local", label: "Local" }, { key: "Litros", label: "Litros", num: true }]} rows={locOrden.slice(-5).reverse()} valueKey="Litros" />}
             </div>
           </div>
         </div>
