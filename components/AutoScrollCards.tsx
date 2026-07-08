@@ -1,8 +1,8 @@
 "use client";
-// Columna auto-desplazable de cards de chofer (feed vertical). Se usa en el
-// Carrusel Zonas para Regiones y en la página /carrusel-regiones. Loop continuo
-// sin salto: lista DUPLICADA + translateY -50% (CSS .vscroll-*), con margen
-// uniforme por item para que la costura no se note. El alto del viewport se mide
+// Grilla auto-desplazable de cards de chofer (feed vertical). La usa el Carrusel
+// Zonas para Regiones. Loop continuo sin salto: grilla DUPLICADA + translateY
+// -50% (CSS .vscroll-*), con margen uniforme por copia para que la costura no se
+// note. El alto del viewport se mide
 // por JS: así llena el espacio restante debajo de lo que haya arriba (KpiRow,
 // toolbar) y se re-ajusta al entrar/salir de pantalla completa (modo kiosco).
 import { useLayoutEffect, useRef, useState } from "react";

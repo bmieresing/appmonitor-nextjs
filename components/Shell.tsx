@@ -20,7 +20,6 @@ const VISTAS: [string, string, string][] = [
   ["Rendimiento", "/rendimiento", "📊"],
   ["Carrusel", "/carrusel", "🎠"],
   ["Carrusel Zonas", "/carrusel-zonas", "🔄"],
-  ["Regiones Feed", "/carrusel-regiones", "📱"],
   ["Parametros", "/parametros", "⚙️"],
 ];
 
