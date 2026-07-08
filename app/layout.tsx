@@ -21,7 +21,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" className={inter.variable} suppressHydrationWarning>
-      <body>
+      {/* suppressHydrationWarning: extensiones del navegador (p. ej. ColorZilla con
+          cz-shortcut-listen) inyectan atributos en el <body> antes de hidratar. */}
+      <body suppressHydrationWarning>
         <ThemeProvider>
           <AppFrame>{children}</AppFrame>
         </ThemeProvider>

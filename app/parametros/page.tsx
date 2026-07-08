@@ -1,12 +1,145 @@
 "use client";
+import { useState } from "react";
 import { useSnap } from "@/components/SnapshotContext";
 import { useTheme } from "@/components/ThemeProvider";
+import { useCentroColores, estiloRuta, COLOR_CENTRO_DEFAULT } from "@/components/CentroColores";
 import { miles } from "@/lib/format";
 
 function estadoClase(estado: string): string {
   if (estado.startsWith("✅")) return "status-ok";
   if (estado.startsWith("⚠")) return "status-warn";
   return "status-err";
+}
+
+// Mapeo prefijo de TRIPULACIÓN → centro de acopio. Define a qué centro pertenece
+// cada chofer (por el prefijo de su tripulación en el sheet) y, con eso, qué color
+// lleva su ruta. Se guarda en Supabase y se aplica al instante (sin redeploy).
+function MapeoTripulacion() {
+  const { zonaMap, setMapeo, quitarMapeo, error } = useCentroColores();
+  const [prefijo, setPrefijo] = useState("");
+  const [centro, setCentro] = useState("");
+
+  const agregar = () => {
+    if (!prefijo.trim() || !centro.trim()) return;
+    const orden = (zonaMap.reduce((m, r) => Math.max(m, r.orden), 0) || 0) + 1;
+    setMapeo({ prefijo: prefijo.trim(), centro: centro.trim(), orden });
+    setPrefijo("");
+    setCentro("");
+  };
+
+  return (
+    <div style={{ marginTop: 22 }}>
+      <div className="section-title">🧭 Mapeo tripulación → centro de acopio</div>
+      <p className="muted" style={{ margin: "0 0 10px", fontSize: 13 }}>
+        Cada chofer se asigna a un centro según el <b>prefijo</b> de su tripulación en el
+        Seguimiento Diario (ej. <code>NCH 4</code> → prefijo <code>NCH</code>). Se evalúan por
+        orden; el primero que coincide gana. Santiago llega con la tripulación <code>SANTIAGO</code>.
+      </p>
+      {error && <p className="status-err" style={{ marginBottom: 8 }}>No se pudo guardar: {error}</p>}
+      <div className="tbl-wrap">
+        <table className="data">
+          <thead><tr><th>Orden</th><th>Prefijo tripulación</th><th>Centro de acopio</th><th></th></tr></thead>
+          <tbody>
+            {zonaMap.map((m) => (
+              <tr key={m.prefijo}>
+                <td className="tnum">{m.orden}</td>
+                <td><code>{m.prefijo}</code></td>
+                <td>
+                  <input
+                    className="col-filtro" defaultValue={m.centro}
+                    onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== m.centro) setMapeo({ ...m, centro: v }); }}
+                    aria-label={`Centro de ${m.prefijo}`}
+                  />
+                </td>
+                <td>
+                  <button className="icon-btn" style={{ width: "auto", padding: "0 10px" }}
+                    onClick={() => quitarMapeo(m.prefijo)} title="Eliminar este prefijo">
+                    Eliminar
+                  </button>
+                </td>
+              </tr>
+            ))}
+            <tr>
+              <td className="muted">nuevo</td>
+              <td>
+                <input className="col-filtro" value={prefijo} placeholder="Prefijo (ej. NCH)"
+                  onChange={(e) => setPrefijo(e.target.value.toUpperCase())} />
+              </td>
+              <td>
+                <input className="col-filtro" value={centro} placeholder="Centro (ej. Nuevo Chillán)"
+                  onChange={(e) => setCentro(e.target.value)} />
+              </td>
+              <td>
+                <button className="icon-btn" style={{ width: "auto", padding: "0 10px" }}
+                  onClick={agregar} disabled={!prefijo.trim() || !centro.trim()}>
+                  Agregar
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// Color de ruta por centro de acopio. La lista de centros sale del mapeo de arriba
+// (sus valores únicos); el color se guarda en Supabase.
+function ColoresCentro() {
+  const { zonaMap, colores, colorDe, setColor, quitarColor } = useCentroColores();
+  // Orden = el del mapeo (norte→sur por `orden`), dedup preservando la 1ª aparición.
+  const centros = [...new Set(zonaMap.map((m) => m.centro))].filter(Boolean);
+
+  return (
+    <div style={{ marginTop: 22 }}>
+      <div className="section-title">🎨 Colores de ruta por centro de acopio</div>
+      <p className="muted" style={{ margin: "0 0 10px", fontSize: 13 }}>
+        El recuadro alrededor de la ruta en cada card de chofer usa este color. Se guarda
+        al instante y se aplica en todas las pantallas. Un centro sin color queda sin recuadro.
+      </p>
+      {centros.length === 0 ? (
+        <p className="muted">Definí primero el mapeo de arriba.</p>
+      ) : (
+        <div className="tbl-wrap">
+          <table className="data">
+            <thead><tr><th>Centro de acopio</th><th>Color</th><th>Vista previa</th><th></th></tr></thead>
+            <tbody>
+              {centros.map((centro) => {
+                const actual = colores[centro];
+                return (
+                  <tr key={centro}>
+                    <td>{centro}</td>
+                    <td>
+                      <input
+                        type="color"
+                        value={actual ?? COLOR_CENTRO_DEFAULT}
+                        onChange={(e) => setColor(centro, e.target.value)}
+                        style={{ width: 44, height: 28, padding: 0, border: "none", background: "none", cursor: "pointer" }}
+                        aria-label={`Color de ${centro}`}
+                      />
+                    </td>
+                    <td>
+                      <span className="entity-route" style={estiloRuta(colorDe(centro)) ?? { color: "var(--muted)" }}>
+                        🗺️ Ruta
+                      </span>
+                    </td>
+                    <td>
+                      {actual && (
+                        <button className="icon-btn" style={{ width: "auto", padding: "0 10px" }}
+                          onClick={() => quitarColor(centro)} title="Quitar color (sin recuadro)">
+                          Quitar
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function ParametrosPage() {
@@ -70,6 +203,9 @@ export default function ParametrosPage() {
           </tbody>
         </table>
       </div>
+
+      <MapeoTripulacion />
+      <ColoresCentro />
     </div>
   );
 }

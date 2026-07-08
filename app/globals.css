@@ -136,6 +136,33 @@ body.kiosk .topbar { display: none; }
 body.kiosk .content { padding: 10px 16px 16px; }
 body.kiosk .toolbar { margin-bottom: 10px; }
 
+/* ── Feed vertical (Carrusel Regiones) ──────────────────────────
+   Una sola columna tipo mobile con TODAS las cards, que se auto-desplaza hacia
+   abajo en loop continuo (para TV/kiosco: se ven todos los choferes). El truco
+   del loop sin salto: se renderiza la lista DUPLICADA y se traslada -50%, así al
+   terminar la 2ª copia queda donde arrancó la 1ª. Requiere margen uniforme por
+   item para que la costura no se note. */
+.vscroll-viewport {
+  position: relative;
+  overflow: hidden;
+  /* El alto lo fija AutoScrollCards por JS (espacio restante bajo lo que hay
+     arriba); acá solo un mínimo por si aún no se midió. */
+  min-height: 240px;
+  /* Desvanece los bordes sup/inf para el efecto "feed". */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 5%, #000 95%, transparent 100%);
+          mask-image: linear-gradient(to bottom, transparent 0, #000 5%, #000 95%, transparent 100%);
+}
+.vscroll-track {
+  display: flex; flex-direction: column; width: 100%;
+  animation-name: vscroll; animation-timing-function: linear; animation-iteration-count: infinite;
+  will-change: transform;
+}
+/* Cada copia de la grilla lleva abajo el mismo gap que la grilla (14px), para que
+   la costura entre las dos copias no se note al hacer el loop -50%. */
+.vscroll-copy { margin-bottom: 14px; }
+@keyframes vscroll { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+@media (prefers-reduced-motion: reduce) { .vscroll-track { animation: none; } }
+
 /* ── Cards ──────────────────────────────────────────────────── */
 .card {
   background: var(--surface); border: 1px solid var(--border);
@@ -189,6 +216,45 @@ body.kiosk .toolbar { margin-bottom: 10px; }
 
 /* ── Cards de choferes / centros ────────────────────────────── */
 .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 14px; }
+
+/* ── Filtro de centro (dropdown, tab Regiones) ─────────────────── */
+.fc { position: relative; display: inline-flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.fc-label { font-size: 11px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--muted); }
+.fc-trigger {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-width: 210px; padding: 8px 12px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  color: var(--text); font-size: 13.5px; font-weight: 600; cursor: pointer;
+  transition: border-color .14s, box-shadow .14s;
+}
+.fc-trigger:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+.fc-trigger.activo { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent); }
+.fc-trigger .fc-txt { flex: 1 1 auto; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fc-txt.fc-todos { color: var(--text-2); font-weight: 500; }
+.fc-chev { color: var(--muted); font-size: 11px; }
+.fc-dot { width: 11px; height: 11px; border-radius: 50%; flex: 0 0 auto; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); }
+.fc-dot-all { background: conic-gradient(from .25turn, #e94e34, #f79269, #7b52ab, #1f6db0, #33a866, #e94e34); }
+.fc-clear {
+  width: 32px; height: 32px; border-radius: 9px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--muted); cursor: pointer; font-size: 12px;
+  display: grid; place-items: center; transition: color .14s, border-color .14s;
+}
+.fc-clear:hover { color: var(--critical); border-color: color-mix(in srgb, var(--critical) 45%, var(--border)); }
+.fc-menu {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 30;
+  min-width: 250px; max-height: 360px; overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: var(--shadow-lg); padding: 6px;
+}
+.fc-item {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 8px 10px; border: none; background: transparent; border-radius: 8px;
+  color: var(--text); font-size: 13.5px; font-weight: 500; cursor: pointer; text-align: left;
+}
+.fc-item:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.fc-item.sel { background: color-mix(in srgb, var(--accent) 15%, transparent); font-weight: 700; }
+.fc-item .fc-txt { flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fc-check { color: var(--accent); font-weight: 800; }
 .entity-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 13px 15px; transition: transform .12s, box-shadow .12s; }
 .entity-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
 .entity-card.cerrada { border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }

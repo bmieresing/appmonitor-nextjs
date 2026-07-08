@@ -25,6 +25,7 @@ export interface Kpis {
 export interface Card {
   chofer: string;
   ruta: string | null;
+  tripulacion: string | null;   // tripulación del sheet; el front la mapea a centro/color
   litros_hoy: number;
   prom: number;
   pct_lit: number;
@@ -75,6 +76,7 @@ export interface Rendimiento {
 export interface CarruselChofer {
   chofer: string;
   ruta: string | null;
+  tripulacion: string | null;   // tripulación del sheet; el front la mapea a centro/color
   litros_tot: number;
   exitosas: number;
   fallidas: number;

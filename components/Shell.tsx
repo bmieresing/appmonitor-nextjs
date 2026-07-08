@@ -8,6 +8,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import AppMonitorLogo from "@/assets/AppMonitorLogo.png";
 import { SnapshotProvider, useSnap } from "./SnapshotContext";
+import { CentroColoresProvider } from "./CentroColores";
 import { useTheme } from "./ThemeProvider";
 import { createClient } from "@/lib/supabase/client";
 
@@ -19,6 +20,7 @@ const VISTAS: [string, string, string][] = [
   ["Rendimiento", "/rendimiento", "📊"],
   ["Carrusel", "/carrusel", "🎠"],
   ["Carrusel Zonas", "/carrusel-zonas", "🔄"],
+  ["Regiones Feed", "/carrusel-regiones", "📱"],
   ["Parametros", "/parametros", "⚙️"],
 ];
 
@@ -90,10 +92,12 @@ function Content({ children }: { children: React.ReactNode }) {
 export default function Shell({ children }: { children: React.ReactNode }) {
   return (
     <SnapshotProvider>
-      <div className="app">
-        <TopBar />
-        <Content>{children}</Content>
-      </div>
+      <CentroColoresProvider>
+        <div className="app">
+          <TopBar />
+          <Content>{children}</Content>
+        </div>
+      </CentroColoresProvider>
     </SnapshotProvider>
   );
 }

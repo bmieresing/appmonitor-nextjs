@@ -6,6 +6,7 @@ import ReactECharts from "./ReactECharts";
 import FullscreenToggle from "./FullscreenToggle";
 import Tank from "./Tank";
 import { useTheme } from "./ThemeProvider";
+import { useCentroColores, estiloRuta } from "./CentroColores";
 import { breakdownDonutOption } from "@/lib/charts";
 import { miles } from "@/lib/format";
 import type { CarruselChofer } from "@/lib/types";
@@ -74,6 +75,7 @@ function segmentos(c: CarruselChofer, t: { good: string; critical: string; serio
 
 export default function CarruselView({ carrusel, initialChofer }: { carrusel: CarruselChofer[]; initialChofer?: string }) {
   const { tokens: t } = useTheme();
+  const { centroDe, colorDe } = useCentroColores();
   const choferes = useMemo(() => carrusel.map((c) => c.chofer), [carrusel]);
   const startIdx = Math.max(0, initialChofer ? choferes.indexOf(initialChofer) : 0);
   const [idx, setIdx] = useState(startIdx);
@@ -167,7 +169,14 @@ export default function CarruselView({ carrusel, initialChofer }: { carrusel: Ca
         <div>
           <div className="hero-eyebrow">Chofer</div>
           <div className="hero-name">{c.cerrado ? "🔒 " : ""}{c.chofer}</div>
-          {c.ruta && <div className="hero-route">🗺️ {c.ruta}</div>}
+          {c.ruta && (() => {
+            const centro = centroDe(c.tripulacion);
+            return (
+              <div className="hero-route" style={estiloRuta(colorDe(centro))} title={centro ?? c.tripulacion ?? undefined}>
+                🗺️ {c.ruta}
+              </div>
+            );
+          })()}
         </div>
         <div className="hero-metrics">
           <Tank icon="💧" label="Litros" pct={c.pct_lit} color="#8fe08f" sub={c.sub_lit} onDark />
