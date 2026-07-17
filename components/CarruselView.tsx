@@ -179,10 +179,10 @@ export default function CarruselView({ carrusel, initialChofer }: { carrusel: Ca
           })()}
         </div>
         <div className="hero-metrics">
-          <Tank icon="💧" label="Litros" pct={c.pct_lit} color="#8fe08f" sub={c.sub_lit} onDark />
-          <Tank icon="🏪" label="Locales" pct={c.pct_loc} color="#8fe08f" sub={c.sub_loc} noAlcPct={c.no_alc_pct_loc ?? 0} noAlcN={c.no_alc_loc} onDark />
-          {c.tiene_alta && <Tank icon="⭐" label="Alta" pct={c.pct_alta} color="#ffe08a" sub={c.sub_alta} noAlcPct={c.no_alc_pct_alta ?? 0} noAlcN={c.no_alc_alta} onDark />}
-          {c.emerg_total > 0 && <Tank icon="🚨" label="Emergencias" pct={c.pct_emerg} color="#ff9e9e" sub={c.sub_emerg} onDark />}
+          <Tank icon="💧" label="Litros" pct={c.pct_lit} color="#8fe08f" sub={c.sub_lit} onDark inlineSub />
+          <Tank icon="🏪" label="Locales" pct={c.pct_loc} color="#8fe08f" sub={c.sub_loc} noAlcPct={c.no_alc_pct_loc ?? 0} noAlcN={c.no_alc_loc} onDark inlineSub />
+          {c.tiene_alta && <Tank icon="⭐" label="Alta" pct={c.pct_alta} color="#ffe08a" sub={c.sub_alta} noAlcPct={c.no_alc_pct_alta ?? 0} noAlcN={c.no_alc_alta} onDark inlineSub />}
+          {c.emerg_total > 0 && <Tank icon="🚨" label="Emergencias" pct={c.pct_emerg} color="#ff9e9e" sub={c.sub_emerg} onDark inlineSub />}
         </div>
       </div>
 

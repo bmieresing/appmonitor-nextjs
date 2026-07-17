@@ -38,6 +38,7 @@ export default function Tank({
   noAlcPct = 0,
   noAlcN,
   onDark = false,
+  inlineSub = false,
 }: {
   label: string;
   pct: number;
@@ -47,6 +48,7 @@ export default function Tank({
   noAlcPct?: number;
   noAlcN?: number; // conteo exacto de no alcanzados (para el tooltip)
   onDark?: boolean; // sobre el hero oscuro: fondo translúcido y textos claros
+  inlineSub?: boolean; // etiqueta a la izquierda + sub grande a la derecha, en una fila a todo el ancho
 }) {
   const p = Math.max(0, Math.min(100, pct));
   const na = Math.max(0, Math.min(noAlcPct, 100 - p)); // rojo apilado sobre el fill
@@ -58,8 +60,18 @@ export default function Tank({
         {na > 0 && <div className="tank-na" style={{ bottom: `${p}%`, height: `${na}%` }} />}
         <span className="tank-pct tnum" style={{ color }}>{pct}%</span>
       </div>
-      <div className="tank-cap">{icon ? `${icon} ` : ""}{label}</div>
-      {sub && <div className="tank-sub tnum">{sub}</div>}
+      {inlineSub ? (
+        <div className="tank-capline">
+          {icon && <span className="tank-cap-icon">{icon}</span>}
+          {sub && <span className="tank-sub tnum" style={{ color }}>{sub}</span>}
+          <span className="tank-cap">{label}</span>
+        </div>
+      ) : (
+        <>
+          <div className="tank-cap">{icon ? `${icon} ` : ""}{label}</div>
+          {sub && <div className="tank-sub tnum">{sub}</div>}
+        </>
+      )}
     </div>
   );
 }
