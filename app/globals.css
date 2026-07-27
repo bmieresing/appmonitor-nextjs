@@ -415,6 +415,85 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
 .estado-ic { font-size: 42px; }
 .estado-tit { font-size: 18px; font-weight: 800; letter-spacing: -0.3px; }
 
+/* ── Vista Mapa ─────────────────────────────────────────────────
+   Mapa (Leaflet) + panel de locales. El mapa ocupa el alto útil de la pantalla:
+   es una vista de monitoreo, no un gráfico dentro de un scroll. */
+.mapa-page { display: flex; flex-direction: column; }
+.mapa-toolbar .col-filtro { width: auto; font-size: 12.5px; padding: 7px 10px; border-radius: 9px; }
+.mapa-resumen { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.mapa-resumen .chip b { font-weight: 800; color: var(--text); }
+/* Chip que además es botón (desplegar los locales sin coordenadas). */
+.chip-accion { cursor: pointer; transition: border-color .14s, background .14s; }
+.chip-accion:hover { border-color: color-mix(in srgb, var(--warning) 55%, var(--border)); }
+.chip-accion.active { background: color-mix(in srgb, var(--warning) 14%, var(--surface)); border-color: color-mix(in srgb, var(--warning) 55%, var(--border)); }
+.mapa-leyenda { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-left: auto; }
+.mapa-leyenda .donut-leg-dot { border-radius: 50%; }
+.mapa-leyenda-sep { width: 1px; height: 16px; background: var(--border); }
+/* Pin de local (divIcon). La sombra lo despega del mapa; sin ella el borde blanco
+   se confunde con las calles claras de la cartografía. */
+.mapa-pin { filter: drop-shadow(0 1.5px 2px rgba(0,0,0,.4)); line-height: 0; }
+.mapa-pin svg { display: block; }
+/* Mismo pin, en chico, para la leyenda. */
+.mapa-leg-pin { flex: 0 0 auto; line-height: 0; }
+.mapa-leg-pin svg { display: block; }
+.mapa-sinubic { margin-bottom: 12px; }
+
+/* Tabs por tramo del país (Norte · Santiago · Sur), cada uno con su avance. */
+.mapa-tabs { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.mapa-tab {
+  display: grid; grid-template-areas: "tit kpi" "sub kpi";
+  align-items: center; gap: 0 18px;
+  padding: 9px 15px; border-radius: 13px; cursor: pointer; text-align: left;
+  background: var(--surface); border: 1px solid var(--border); color: var(--text);
+  font-family: inherit; transition: border-color .14s, background .14s;
+}
+.mapa-tab:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+.mapa-tab.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.mapa-tab-tit { grid-area: tit; font-size: 13.5px; font-weight: 800; letter-spacing: -0.2px; }
+.mapa-tab-sub { grid-area: sub; font-size: 10.5px; color: var(--muted); }
+.mapa-tab-kpi { grid-area: kpi; display: flex; flex-direction: column; align-items: flex-end; }
+.mapa-tab-kpi b { font-size: 16px; line-height: 1.1; }
+.mapa-tab-kpi span { font-size: 10.5px; color: var(--muted); }
+
+/* Un mapa por chofer: la ruta del día entra completa en un panel chico y con el
+   zoom justo, que es lo que un encuadre regional nunca logra. Los mapas se
+   inicializan al entrar en pantalla (ver MapaLocales), así 30 paneles no
+   disparan 30 instancias de Leaflet de golpe. */
+.mapa-paneles { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); gap: 14px; }
+.mapa-panel { display: flex; flex-direction: column; overflow: hidden; padding: 0; min-height: 0; height: 310px; }
+.mapa-panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 9px 13px 8px; }
+.mapa-panel-id { min-width: 0; }
+.mapa-panel-tit { font-size: 12.5px; font-weight: 800; letter-spacing: -0.1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mapa-panel-ruta { margin-top: 3px; font-size: 10.5px; font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mapa-panel-kpis { display: flex; flex-direction: column; align-items: flex-end; flex: 0 0 auto; }
+.mapa-panel-kpis b { font-size: 16px; line-height: 1; }
+.mapa-panel-det { font-size: 10.5px; color: var(--muted); margin-top: 3px; }
+/* El contenedor de Leaflet ocupa lo que queda de la card, bajo el encabezado. */
+.mapa-canvas { width: 100%; flex: 1; min-height: 0; background: var(--surface-2); z-index: 0; }
+
+/* Popups y controles de Leaflet: la librería trae su propio look claro, que en
+   tema oscuro queda blanco. Se repintan con los tokens del dashboard. */
+.leaflet-popup-content-wrapper, .leaflet-popup-tip {
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--border); box-shadow: var(--shadow-lg);
+}
+.leaflet-popup-content { margin: 10px 12px; font-size: 12.5px; }
+.leaflet-container { font: inherit; background: var(--surface-2); }
+.leaflet-container a.leaflet-popup-close-button { color: var(--muted); }
+.leaflet-bar a, .leaflet-bar a:hover { background: var(--surface); color: var(--text-2); border-color: var(--border); }
+.leaflet-control-attribution { background: color-mix(in srgb, var(--surface) 85%, transparent) !important; color: var(--muted); font-size: 10px; }
+.leaflet-control-attribution a { color: var(--text-2); }
+.mapa-pop-tit { font-weight: 800; font-size: 13.5px; margin-bottom: 1px; }
+.mapa-pop-id { font-size: 11px; color: var(--muted); margin-bottom: 7px; }
+.mapa-pop-row { display: flex; justify-content: space-between; gap: 16px; padding: 2px 0; }
+.mapa-pop-row span { color: var(--muted); }
+.mapa-pop-row b { font-weight: 700; text-align: right; }
+
+@media (max-width: 1100px) {
+  .mapa-leyenda { margin-left: 0; }
+  .mapa-panel { height: 260px; }
+}
+
 /* ── Responsive: tablet y móvil ─────────────────────────────── */
 /* Tablet: la fila KPI baja a 3 y el hero apila; el resto se acomoda solo con
    los grids fluidos (minmax + min(...)). */

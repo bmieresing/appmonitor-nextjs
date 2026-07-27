@@ -100,17 +100,31 @@ export interface CarruselChofer {
   razones: { NombreRazon: string; N: number }[];
   locales: { Local: string; Litros: number }[];
   productos: { Producto: string; Visitas: number; Litros: number }[];
-  detalle?: {
-    id_local: number | null;
-    local: string;
-    prioridad: string;          // valor real de LocalesRuta (Alta / Media / Baja / …)
-    emergencia?: boolean;       // el local está marcado como emergencia
-    estado: string;             // "Realizado" | "No alcanzado" | "Fallido" | "Pendiente"
-    razon: string | null;       // nombre de la razón de fallo
-    litros: number;
-    productos: { producto: string; litros: number }[];
-  }[];
+  detalle?: DetalleLocal[];
 }
+
+// Una fila por local de la ruta del chofer. Es la única granularidad por local
+// del snapshot: alimenta la tabla del carrusel y, concatenando el detalle de
+// todos los choferes, los puntos de la vista Mapa (ver lib/mapa.ts).
+// `type` y no `interface`: la tabla del carrusel accede a las celdas por nombre
+// de columna (`d as Record<string, unknown>`), y solo los type alias de objeto
+// tienen index signature implícita.
+export type DetalleLocal = {
+  id_local: number | null;
+  local: string;
+  prioridad: string;          // valor real de LocalesRuta (Alta / Media / Baja / …)
+  emergencia?: boolean;       // el local está marcado como emergencia
+  estado: string;             // "Realizado" | "No alcanzado" | "Fallido" | "Pendiente"
+  razon: string | null;       // nombre de la razón de fallo
+  litros: number;
+  productos: { producto: string; litros: number }[];
+  // Coordenadas de LocalesRuta (vía dim.local). null = local sin geocodificar o
+  // con coordenada fuera de Chile; el publisher ya las descarta. Ausentes si el
+  // snapshot lo generó un Lambda anterior al mapa.
+  lat?: number | null;
+  lng?: number | null;
+  comuna?: string | null;     // subdivide el mapa de Santiago (un solo centro)
+};
 
 export interface Parametros {
   resumen: Record<string, number>;

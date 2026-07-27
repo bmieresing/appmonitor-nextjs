@@ -3,25 +3,19 @@
 // desglose (ECharts) y tablas/barras. Look profesional, tema-aware.
 import React, { useEffect, useMemo, useState } from "react";
 import ReactECharts from "./ReactECharts";
+import MapaLocales from "./MapaLocales";
 import FullscreenToggle from "./FullscreenToggle";
 import Tank from "./Tank";
 import { useTheme } from "./ThemeProvider";
 import { useCentroColores, estiloRuta } from "./CentroColores";
 import { breakdownDonutOption } from "@/lib/charts";
 import { miles } from "@/lib/format";
+import { estadoColor, prioridadColor } from "@/lib/theme";
+import { tieneCoords, type PuntoMapa } from "@/lib/mapa";
 import type { CarruselChofer } from "@/lib/types";
 
 const NO_ALC = "no alcanzamos a pasar";
 const INTERVALO_MS = 10_000;
-
-// Color del estado de cada local en el detalle (verde ok · rojo no alcanzado ·
-// naranja otro fallo · gris pendiente).
-function estadoColor(estado: string, t: { good: string; critical: string; warning: string; muted: string }): string {
-  if (estado === "Realizado") return t.good;
-  if (estado === "No alcanzado") return t.critical;
-  if (estado === "Fallido") return t.warning;
-  return t.muted; // Pendiente
-}
 
 // Tabla de magnitud (estilo original): encabezados de columna + una columna con
 // barra fina proporcional al máximo de la lista. `valueKey` es la columna barra.
@@ -57,6 +51,39 @@ function BarTable({ cols, rows, valueKey }: {
         ))}
       </tbody>
     </table>
+  );
+}
+
+// Mapa de la ruta del chofer actual. Los puntos salen del mismo `detalle` que
+// alimenta la tabla de abajo, así que las dos vistas muestran exactamente los
+// mismos locales. Componente aparte para que el memo dependa solo del chofer y no
+// se redibuje al filtrar u ordenar la tabla.
+function MapaRuta({ c }: { c: CarruselChofer }) {
+  const { tokens: t } = useTheme();
+  const puntos = useMemo<PuntoMapa[]>(
+    () => (c.detalle ?? []).map((d) => ({ ...d, chofer: c.chofer, ruta: c.ruta, tripulacion: c.tripulacion })),
+    [c],
+  );
+  const pintar = useMemo(() => (p: PuntoMapa) => estadoColor(p.estado, t), [t]);
+  const conCoords = useMemo(() => puntos.filter(tieneCoords), [puntos]);
+  // Snapshot anterior al mapa: ningún local trae el campo. Distinto de traerlo en
+  // null, que es un local real sin geocodificar.
+  if (puntos.length === 0 || puntos.every((p) => p.lat === undefined)) return null;
+
+  const sinUbic = puntos.length - conCoords.length;
+  return (
+    <div className="card card-pad">
+      <div className="section-title" style={{ margin: "0 0 10px" }}>
+        🗺️ Ruta en el mapa
+        <span style={{ color: "var(--muted)", fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>
+          {" · "}{conCoords.length} de {puntos.length} locales ubicados
+          {sinUbic > 0 && ` · ${sinUbic} sin coordenadas`}
+        </span>
+      </div>
+      {conCoords.length === 0
+        ? <p className="muted">Ningún local de esta ruta tiene coordenadas cargadas.</p>
+        : <MapaLocales puntos={conCoords} colorDe={pintar} alto={430} fitKey={c.chofer} scrollZoom={false} />}
+    </div>
   );
 }
 
@@ -141,6 +168,8 @@ export default function CarruselView({ carrusel, initialChofer }: { carrusel: Ca
     else { setSortCol(""); setSortDir(1); }                         // 3er: orden natural
   };
 
+  // Morado de emergencia: manda sobre la prioridad, acá y en el mapa.
+  const morado = prioridadColor("", true, t);
   const cajas: [string, number, string][] = [
     [t.good, c.exitosas, "Exitosas"],
     [t.critical, c.fallidas, "Fallidas"],
@@ -219,17 +248,20 @@ export default function CarruselView({ carrusel, initialChofer }: { carrusel: Ca
                 : <BarTable cols={[{ key: "Local", label: "Local" }, { key: "Litros", label: "Litros", num: true }]} rows={locOrden.slice(0, 5)} valueKey="Litros" />}
             </div>
             <div className="card card-pad">
+              <div className="section-title" style={{ margin: "0 0 10px" }}>⚠️ Top 5 — Menos litros</div>
+              {locOrden.length === 0 ? <p className="muted">Sin datos</p>
+                : <BarTable cols={[{ key: "Local", label: "Local" }, { key: "Litros", label: "Litros", num: true }]} rows={locOrden.slice(-5).reverse()} valueKey="Litros" />}
+            </div>
+            <div className="card card-pad">
               <div className="section-title" style={{ margin: "0 0 10px" }}>🧴 Por producto</div>
               {(c.productos ?? []).length === 0 ? <p className="muted">Sin datos</p>
                 : <BarTable cols={[{ key: "Producto", label: "Producto" }, { key: "Visitas", label: "Visitas", num: true }, { key: "Litros", label: "Litros", num: true }]} rows={c.productos} valueKey="Litros" />}
             </div>
           </div>
+          {/* Columna del mapa: las tres listas quedan apiladas a la izquierda y la
+              ruta se ve en paralelo, sin tener que bajar hasta el pie de la vista. */}
           <div className="lists-col">
-            <div className="card card-pad">
-              <div className="section-title" style={{ margin: "0 0 10px" }}>⚠️ Top 5 — Menos litros</div>
-              {locOrden.length === 0 ? <p className="muted">Sin datos</p>
-                : <BarTable cols={[{ key: "Local", label: "Local" }, { key: "Litros", label: "Litros", num: true }]} rows={locOrden.slice(-5).reverse()} valueKey="Litros" />}
-            </div>
+            <MapaRuta c={c} />
           </div>
         </div>
       </div>
@@ -285,13 +317,21 @@ export default function CarruselView({ carrusel, initialChofer }: { carrusel: Ca
                         )}
                       </td>
                       <td>
-                        {d.prioridad === "Alta"
-                          ? <span className="pill" style={{ background: `color-mix(in srgb, ${t.warning} 16%, transparent)`, color: t.warning }}>⭐ Alta</span>
-                          : <span style={{ color: "var(--muted)" }}>{d.prioridad}</span>}
+                        {/* Mismo código de color que el borde de los puntos del
+                            mapa: alta roja · media naranja · baja/normal azul. */}
+                        {(() => {
+                          const pc = prioridadColor(d.prioridad, false, t);
+                          if (d.prioridad === "—") return <span style={{ color: "var(--muted)" }}>—</span>;
+                          return (
+                            <span className="pill" style={{ background: `color-mix(in srgb, ${pc} 16%, transparent)`, color: pc }}>
+                              {d.prioridad === "Alta" ? "⭐ " : ""}{d.prioridad}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td>
                         {d.emergencia
-                          ? <span className="pill" style={{ background: `color-mix(in srgb, ${t.critical} 16%, transparent)`, color: t.critical }}>🚨 Sí</span>
+                          ? <span className="pill" style={{ background: `color-mix(in srgb, ${morado} 16%, transparent)`, color: morado }}>🚨 Sí</span>
                           : <span style={{ color: "var(--muted)" }}>—</span>}
                       </td>
                       <td><span className="pill" style={{ background: `color-mix(in srgb, ${ec} 16%, transparent)`, color: ec }}>{d.estado}</span></td>

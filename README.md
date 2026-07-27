@@ -50,7 +50,7 @@ lib/
 ```bash
 npm install
 cp .env.example .env.local   # completar con la URL + anon key del proyecto Supabase
-npm run dev                  # → http://localhost:3003 (reiniciar tras editar .env.local)
+npm run dev                  # → http://localhost:3004 (reiniciar tras editar .env.local)
 ```
 
 Para que haya datos, el Lambda + el cron de Supabase deben estar andando (ver
@@ -75,7 +75,10 @@ Como Vercel usa `nextjs/` de Root Directory, las carpetas hermanas `../lambda/` 
 
 - **Gráficos**: ECharts (anillos KPI con tooltip, barras, donut de desglose,
   barras apiladas de efectividad), todos leyendo los tokens del tema.
+- **Mapa**: Leaflet con carga dinámica (toca `window`) y tiles CARTO en variante
+  clara y oscura, para que siga al tema como el resto del dashboard.
 - **Paleta**: categórica CVD-safe + status de la skill `dataviz` (validada).
 - **Tema**: toggle 🌙/☀️; recuerda la preferencia y arranca según el sistema.
 
-Puerto local 3003. Las 8 vistas repollan `/api/snapshot` cada 60 s.
+Puerto local 3004 (`rendering-docs` ocupa el 3003). Las 9 vistas repollan
+`/api/snapshot` cada 60 s.

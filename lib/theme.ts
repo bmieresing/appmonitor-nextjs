@@ -22,6 +22,7 @@ export interface Tokens {
   warning: string;
   serious: string;
   critical: string;
+  criticalDark: string;   // rojo profundo: el fallo "de verdad", frente al no alcanzado
   // categórica (orden fijo, CVD-safe)
   categorical: string[];
   // rampa secuencial de marca (verde, claro→oscuro) para magnitud de litros
@@ -45,6 +46,7 @@ export const THEME: Record<Mode, Tokens> = {
     warning: "#eda100",
     serious: "#ec835a",
     critical: "#d03b3b",
+    criticalDark: "#7a1414",
     categorical: ["#2a78d6", "#1baf7a", "#eda100", "#008300", "#4a3aa7", "#e34948", "#e87ba4", "#eb6834"],
     seq: ["#cfe6cf", "#9fce9f", "#6bb76b", "#3f9f3f", "#2d7a2d", "#1f5a1f"],
   },
@@ -64,6 +66,7 @@ export const THEME: Record<Mode, Tokens> = {
     warning: "#fab219",
     serious: "#ec835a",
     critical: "#e05555",
+    criticalDark: "#8f1f1f",
     categorical: ["#3987e5", "#199e70", "#c98500", "#2a9d2a", "#9085e9", "#e66767", "#d55181", "#d95926"],
     seq: ["#1f3a1f", "#2d5a2d", "#3f8a3f", "#4faf4f", "#5fc95f", "#8fe08f"],
   },
@@ -102,3 +105,34 @@ export function semaforoComp(pct: number, t: Tokens): string {
   if (pct >= 70) return t.warning;
   return t.critical;
 }
+
+// Color del estado de un local: verde realizado · rojo el no alcanzado · rojo
+// profundo el fallido (el fallo "de verdad": se pasó y no se pudo recolectar,
+// frente a la ruta que no alcanzó a llegar) · gris pendiente. Lo comparten la
+// tabla de detalle del carrusel y los pines del mapa: el mismo estado se ve del
+// mismo color en las dos vistas.
+export function estadoColor(estado: string, t: Tokens): string {
+  if (estado === "Realizado") return t.good;
+  if (estado === "Fallido") return t.criticalDark;
+  if (estado === "No alcanzado") return t.critical;
+  // Pendiente: gris, pero el de texto y no el `muted`. Sobre el mapa claro un
+  // gris pálido directamente desaparece, y los pendientes son mayoría del día.
+  return t.textSecondary;
+}
+
+// Color de la PRIORIDAD del local: rojo alta · naranja media · azul baja/normal.
+// Una emergencia manda sobre la prioridad y se pinta morada. Es la segunda
+// dimensión de la vista: en el mapa va en el borde del punto (el relleno lleva el
+// estado), así un punto dice a la vez qué tan urgente es y cómo terminó.
+export function prioridadColor(prioridad: string, emergencia: boolean | undefined, t: Tokens): string {
+  if (emergencia) return t.categorical[4]; // morado
+  if (prioridad === "Alta") return t.critical;
+  if (prioridad === "Media") return t.serious;
+  if (prioridad === "Baja" || prioridad === "Normal") return t.accent2;
+  return t.muted; // prioridad no cargada ("—")
+}
+
+// Orden de la leyenda / los selects. Fijo: primero lo hecho, después lo que
+// requiere acción; las prioridades de mayor a menor urgencia.
+export const ESTADOS = ["Realizado", "Pendiente", "No alcanzado", "Fallido"] as const;
+export const PRIORIDADES = ["Alta", "Media", "Baja"] as const;

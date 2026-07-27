@@ -16,6 +16,7 @@ const VISTAS: [string, string, string][] = [
   ["Global", "/global", "🌐"],
   ["Santiago", "/santiago", "🏙️"],
   ["Regiones", "/regiones", "🗺️"],
+  ["Mapa", "/mapa", "📍"],
   ["Recolecciones", "/recolecciones", "✅"],
   ["Rendimiento", "/rendimiento", "📊"],
   ["Carrusel", "/carrusel", "🎠"],
