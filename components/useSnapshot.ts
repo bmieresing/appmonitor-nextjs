@@ -18,12 +18,24 @@ const INTERVALO_MS = 60_000;
 const PULL_MS = 3_000;       // cada cuánto pulimos la tabla tras forzar
 const PULL_TIMEOUT_MS = 50_000; // el Lambda tarda ~30s; damos margen
 
-function ganaElNuevo(nuevo: Snapshot, actual: Snapshot | null): boolean {
+// ¿Vale la pena reemplazar el snapshot que ya está en memoria? Solo si el que
+// llegó es ESTRICTAMENTE más nuevo.
+//
+// La comparación es `>` y no `>=` a propósito: el publisher recalcula cada 5 min
+// y el poll corre cada 60 s, así que 4 de cada 5 respuestas traen EL MISMO
+// snapshot. Con `>=` se reemplazaba igual el objeto y, aunque el dato fuera
+// idéntico, cambiaba su identidad: se rehacían todos los `useMemo` colgados de
+// `snap` y con ellos los marcadores de cada mapa (que además cerraban el popup
+// que el operador tuviera abierto) y las series de cada gráfico. Mismo dato =
+// mismo objeto = no se recalcula nada.
+function esMasNuevo(nuevo: Snapshot, actual: Snapshot | null): boolean {
   if (!actual) return true;
   const a = Date.parse(nuevo.generated_at ?? "");
   const b = Date.parse(actual.generated_at ?? "");
+  // Sin fecha comparable no hay forma de saber cuál es más nuevo: gana el último
+  // que llegó, que es el comportamiento seguro.
   if (Number.isNaN(a) || Number.isNaN(b)) return true;
-  return a >= b;
+  return a > b;
 }
 
 export function useSnapshot() {
@@ -35,7 +47,7 @@ export function useSnapshot() {
 
   const aplicar = useCallback((nuevo: Snapshot) => {
     if (!vivo.current) return;
-    if (ganaElNuevo(nuevo, snapRef.current)) {
+    if (esMasNuevo(nuevo, snapRef.current)) {
       snapRef.current = nuevo;
       setSnap(nuevo);
     }

@@ -7,7 +7,7 @@
 // El snapshot trae la tripulación cruda de cada chofer; acá se resuelve
 // tripulación → centro (por prefijo) → color. Cambiar el mapeo o los colores se
 // ve al instante, sin redeploy del Lambda.
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useSnap } from "./SnapshotContext";
 import { createClient } from "@/lib/supabase/client";
 
@@ -164,14 +164,16 @@ export function CentroColoresProvider({ children }: { children: React.ReactNode 
     if (error) { setError(error.message); await cargar(); }
   }, [cargar]);
 
-  return (
-    <CentroColoresCtx.Provider value={{
-      colores, zonaMap, loading, error,
-      centroDe, colorDe, setColor, quitarColor, setMapeo, quitarMapeo,
-    }}>
-      {children}
-    </CentroColoresCtx.Provider>
-  );
+  // Memoizado: este provider se re-renderiza con cada snapshot (usa `useSnap`
+  // para el auto-descubrimiento de prefijos), y sin esto le pasaría un objeto
+  // nuevo al contexto en cada poll aunque el mapeo y los colores fueran los
+  // mismos — que es justo lo que hace recalcular paneles y agrupaciones.
+  const valor = useMemo(() => ({
+    colores, zonaMap, loading, error,
+    centroDe, colorDe, setColor, quitarColor, setMapeo, quitarMapeo,
+  }), [colores, zonaMap, loading, error, centroDe, colorDe, setColor, quitarColor, setMapeo, quitarMapeo]);
+
+  return <CentroColoresCtx.Provider value={valor}>{children}</CentroColoresCtx.Provider>;
 }
 
 export function useCentroColores() {

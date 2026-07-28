@@ -100,6 +100,50 @@ function segmentos(c: CarruselChofer, t: { good: string; critical: string; serio
   return segs;
 }
 
+// Desglose de visitas (donut + leyenda + mini-KPIs). Componente aparte por lo
+// mismo que MapaRuta: el filtrado y el orden de la tabla de detalle viven en el
+// componente padre, y armar la opción de ECharts ahí adentro la hacía objeto
+// nuevo en cada tecleo — y ReactECharts reconstruye el gráfico entero (setOption
+// con notMerge) cada vez que la opción cambia de identidad. Acá el memo depende
+// solo del chofer y del tema, que es de lo único que depende el gráfico.
+function DonutDesglose({ c }: { c: CarruselChofer }) {
+  const { tokens: t } = useTheme();
+  const segs = useMemo(() => segmentos(c, t), [c, t]);
+  const option = useMemo(() => breakdownDonutOption(segs, t), [segs, t]);
+  const cajas = useMemo<[string, number, string][]>(() => [
+    [t.good, c.exitosas, "Exitosas"],
+    [t.critical, c.fallidas, "Fallidas"],
+    ["#6b7280", c.pend_alta, "Pend. Alta"],
+    [t.muted, c.pend_normal, "Pend. Normal"],
+  ], [c, t]);
+
+  return (
+    <div className="card card-pad">
+      <div className="section-title" style={{ margin: "0 0 6px" }}>Desglose de visitas</div>
+      <ReactECharts option={option} height={300} />
+      {/* Leyenda en HTML (nombre + valor por segmento): texto nítido al zoom,
+          el canvas solo dibuja el aro. */}
+      <div className="donut-legend">
+        {segs.filter((s) => s.value > 0).map((s) => (
+          <span key={s.name} className="donut-leg-item">
+            <span className="donut-leg-dot" style={{ background: s.color }} />
+            <span className="donut-leg-name">{s.name}</span>
+            <span className="donut-leg-val tnum">{miles(s.value)}</span>
+          </span>
+        ))}
+      </div>
+      <div className="mini-kpis">
+        {cajas.map(([color, val, lbl]) => (
+          <div key={lbl} className="mini-kpi" style={{ background: color }}>
+            <div className="v tnum">{val}</div>
+            <div className="l">{lbl}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function CarruselView({ carrusel, initialChofer }: { carrusel: CarruselChofer[]; initialChofer?: string }) {
   const { tokens: t } = useTheme();
   const { centroDe, colorDe } = useCentroColores();
@@ -121,7 +165,6 @@ export default function CarruselView({ carrusel, initialChofer }: { carrusel: Ca
 
   if (carrusel.length === 0) return <p className="muted">Sin datos de recolecciones para hoy.</p>;
   const c = carrusel[Math.min(idx, carrusel.length - 1)];
-  const segs = segmentos(c, t);
   const locOrden = (c.locales ?? []).slice().sort((a, b) => b.Litros - a.Litros); // desc
 
   // Detalle: columnas (con su tipo de filtro), filtrado y orden por columna.
@@ -170,12 +213,6 @@ export default function CarruselView({ carrusel, initialChofer }: { carrusel: Ca
 
   // Morado de emergencia: manda sobre la prioridad, acá y en el mapa.
   const morado = prioridadColor("", true, t);
-  const cajas: [string, number, string][] = [
-    [t.good, c.exitosas, "Exitosas"],
-    [t.critical, c.fallidas, "Fallidas"],
-    ["#6b7280", c.pend_alta, "Pend. Alta"],
-    [t.muted, c.pend_normal, "Pend. Normal"],
-  ];
 
   return (
     <div>
@@ -216,29 +253,7 @@ export default function CarruselView({ carrusel, initialChofer }: { carrusel: Ca
       </div>
 
       <div className="grid-2">
-        <div className="card card-pad">
-          <div className="section-title" style={{ margin: "0 0 6px" }}>Desglose de visitas</div>
-          <ReactECharts option={breakdownDonutOption(segs, t)} height={300} />
-          {/* Leyenda en HTML (nombre + valor por segmento): texto nítido al zoom,
-              el canvas solo dibuja el aro. */}
-          <div className="donut-legend">
-            {segs.filter((s) => s.value > 0).map((s) => (
-              <span key={s.name} className="donut-leg-item">
-                <span className="donut-leg-dot" style={{ background: s.color }} />
-                <span className="donut-leg-name">{s.name}</span>
-                <span className="donut-leg-val tnum">{miles(s.value)}</span>
-              </span>
-            ))}
-          </div>
-          <div className="mini-kpis">
-            {cajas.map(([color, val, lbl]) => (
-              <div key={lbl} className="mini-kpi" style={{ background: color }}>
-                <div className="v tnum">{val}</div>
-                <div className="l">{lbl}</div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <DonutDesglose c={c} />
 
         <div className="carrusel-lists">
           <div className="lists-col">
