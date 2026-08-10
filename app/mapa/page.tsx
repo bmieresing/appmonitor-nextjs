@@ -1,18 +1,24 @@
 "use client";
-// Vista Mapa: un mapa por chofer con su ruta del día. El resto del dashboard
-// responde CUÁNTO falta; esta responde DÓNDE.
+// Vista Mapa: la ruta del día de cada chofer, en tres lecturas.
+//
+// El resto del dashboard responde CUÁNTO falta; esta responde DÓNDE y CUÁNDO:
+//   · Mapas           — un mapa por ruta, con sus locales pintados por estado.
+//   · Línea de tiempo — una fila por ruta, un punto por visita en su hora.
+//   · Reproducción    — el recorrido de una ruta como video, sobre el mapa.
 //
 // La unidad es la ruta, no el territorio. Un mapa regional (o nacional) apila
 // cientos de locales en el mismo píxel y termina siendo una mancha; la ruta de un
 // chofer entra completa en un panel chico, con el zoom justo y los puntos
 // separados. Y es la unidad con la que se opera: cada panel es el trabajo de una
-// persona, con su propio avance.
+// persona, con su propio avance. Los tres modos comparten filtros y tabs.
 //
-// Los puntos salen del detalle por local que ya trae el snapshot (lib/mapa.ts):
-// no viajan datos nuevos, solo las coordenadas.
+// Todo sale del detalle por local que ya trae el snapshot (lib/mapa.ts): no viajan
+// datos nuevos más allá de las coordenadas y la hora de cada visita.
 import React, { useEffect, useMemo, useState } from "react";
 import MapaLocales, { PinLeyenda } from "@/components/MapaLocales";
 import FullscreenToggle from "@/components/FullscreenToggle";
+import TimelineRutas from "@/components/TimelineRutas";
+import ReproduccionRutas from "@/components/ReproduccionRutas";
 import { useSnap } from "@/components/SnapshotContext";
 import { useCentroColores, estiloRuta } from "@/components/CentroColores";
 import { useTheme } from "@/components/ThemeProvider";
@@ -20,16 +26,26 @@ import {
   puntosDeSnapshot, panelesPorChofer, tramosPorCentro, TRAMOS,
   type PuntoMapa, type Tramo,
 } from "@/lib/mapa";
+import { filasTiempo, ventanaDe, aMinutos, sinSoporteHora } from "@/lib/tiempo";
 import { estadoColor, semaforo, ESTADOS } from "@/lib/theme";
 import { miles } from "@/lib/format";
 
 const FALTA = "__falta__";           // opción "todo lo que no está realizado"
+
+type Modo = "mapas" | "tiempo" | "video";
+
+const MODOS: { id: Modo; label: string; icono: string; title: string }[] = [
+  { id: "mapas", label: "Mapas", icono: "🗺️", title: "Un mapa por ruta: dónde está cada local" },
+  { id: "tiempo", label: "Línea de tiempo", icono: "⏱️", title: "Cuándo se registró cada visita, ruta por ruta" },
+  { id: "video", label: "Reproducción", icono: "▶", title: "El recorrido de una ruta, hora por hora, sobre el mapa" },
+];
 
 export default function MapaPage() {
   const { snap } = useSnap();
   const { tokens: t } = useTheme();
   const { centroDe, colorDe: colorCentro, zonaMap } = useCentroColores();
 
+  const [modo, setModo] = useState<Modo>("mapas");
   const [tab, setTab] = useState<Tramo>("Santiago");
   const [estado, setEstado] = useState("");
   const [soloAlta, setSoloAlta] = useState(false);
@@ -57,6 +73,30 @@ export default function MapaPage() {
   );
   const paneles = useMemo(() => todosPaneles.filter((p) => p.tramo === tab), [todosPaneles, tab]);
 
+  // Paneles del tiempo: mismos agrupamiento y orden, pero SIN exigir coordenadas.
+  // Un local sin geocodificar igual tiene hora de visita, y dejarlo afuera falsearía
+  // el ritmo de la ruta (justo lo que estas dos vistas miden).
+  const visiblesTodos = useMemo(() => datos.todos.filter(pasa), [datos.todos, pasa]);
+  const panelesTiempoTodos = useMemo(
+    () => panelesPorChofer(visiblesTodos, centroDe, ordenCentro, tramos),
+    [visiblesTodos, centroDe, ordenCentro, tramos],
+  );
+  const filas = useMemo(
+    () => filasTiempo(panelesTiempoTodos.filter((p) => p.tramo === tab)),
+    [panelesTiempoTodos, tab],
+  );
+  // La ventana horaria sale de TODOS los tramos, no solo del visible: así el eje no
+  // se mueve al cambiar de tab y las horas se comparan entre tramos.
+  const ventana = useMemo(() => {
+    const mins = visiblesTodos.map((p) => aMinutos(p.hora)).filter((m): m is number => m !== null);
+    return ventanaDe(mins);
+  }, [visiblesTodos]);
+
+  // Cada modo cuenta lo suyo: los tabs del modo mapas hablan de lo que se puede
+  // dibujar; los del tiempo, de todas las rutas con visitas registradas.
+  const panelesDelModo = modo === "mapas" ? todosPaneles : panelesTiempoTodos;
+  const sinHoras = useMemo(() => sinSoporteHora(datos.todos), [datos.todos]);
+
   // Encuadre: cada cambio de filtro o de tab acerca a lo que quedó visible.
   const filtroKey = `${tab}|${estado}|${soloAlta}|${soloEmerg}`;
   const [fit, setFit] = useState("init");
@@ -69,22 +109,28 @@ export default function MapaPage() {
 
   if (!snap) return <p className="muted">Cargando…</p>;
   if (datos.total === 0) return <p className="muted">Sin locales asignados para hoy.</p>;
-  if (datos.sinSoporte) {
-    return (
-      <div className="estado">
-        <div className="estado-ic">🗺️</div>
-        <div className="estado-tit">El snapshot todavía no trae coordenadas</div>
-        <p className="muted">
-          Este snapshot lo generó una versión del publisher anterior al mapa. Usá ↺ (Forzar recálculo)
-          para pedir uno nuevo; si sigue igual, falta desplegar el Lambda.
-        </p>
-      </div>
-    );
-  }
+  // Snapshot de un publisher viejo: le falta el campo que alimenta el modo activo.
+  // Se avisa por modo, no para toda la página — un snapshot puede tener coordenadas
+  // y no horas (el caso del despliegue intermedio).
+  const faltaCampo = modo === "mapas" ? datos.sinSoporte : sinHoras;
+  const avisoCampo = modo === "mapas"
+    ? { ic: "🗺️", tit: "El snapshot todavía no trae coordenadas" }
+    : { ic: "⏱️", tit: "El snapshot todavía no trae la hora de las visitas" };
 
   return (
     <div className="mapa-page">
       <div className="toolbar mapa-toolbar">
+        {/* Modo de lectura. Los filtros y los tabs de tramo son los mismos en los
+            tres: se cambia cómo se mira lo filtrado, no qué se filtra. */}
+        <div className="modo-sw">
+          {MODOS.map((m) => (
+            <button key={m.id} className={`modo-btn${modo === m.id ? " active" : ""}`}
+              onClick={() => setModo(m.id)} title={m.title}>
+              <span className="modo-ic">{m.icono}</span> {m.label}
+            </button>
+          ))}
+        </div>
+
         <select className="col-filtro" value={estado} onChange={(e) => setEstado(e.target.value)} title="Estado del local">
           <option value="">Todos los estados</option>
           <option value={FALTA}>Lo que falta (no realizado)</option>
@@ -94,10 +140,12 @@ export default function MapaPage() {
         <label className="sw"><input type="checkbox" checked={soloAlta} onChange={(e) => setSoloAlta(e.target.checked)} /> Solo prioridad Alta</label>
         <label className="sw"><input type="checkbox" checked={soloEmerg} onChange={(e) => setSoloEmerg(e.target.checked)} /> Solo emergencias</label>
 
-        <button className="icon-btn" style={{ width: "auto", padding: "0 12px" }}
-          onClick={() => setFit(`fit-${Date.now()}`)} title="Volver a encuadrar los mapas">
-          ⤢ Reencuadrar
-        </button>
+        {modo === "mapas" && (
+          <button className="icon-btn" style={{ width: "auto", padding: "0 12px" }}
+            onClick={() => setFit(`fit-${Date.now()}`)} title="Volver a encuadrar los mapas">
+            ⤢ Reencuadrar
+          </button>
+        )}
         <FullscreenToggle />
       </div>
 
@@ -105,7 +153,7 @@ export default function MapaPage() {
           (norte→sur), tomando Logística Santiago como eje. */}
       <div className="mapa-tabs">
         {TRAMOS.map((tr) => {
-          const ps = todosPaneles.filter((p) => p.tramo === tr.id);
+          const ps = panelesDelModo.filter((p) => p.tramo === tr.id);
           const locales = ps.reduce((s, p) => s + p.puntos.length, 0);
           const hechos = ps.reduce((s, p) => s + p.realizados, 0);
           const pct = locales > 0 ? Math.round((hechos / locales) * 100) : 0;
@@ -123,13 +171,18 @@ export default function MapaPage() {
       </div>
 
       <div className="mapa-resumen">
-        <span className="chip"><b className="tnum">{miles(paneles.length)}</b>&nbsp;rutas en {tab}</span>
-        {sinUbicVisibles.length > 0 && (
+        <span className="chip">
+          <b className="tnum">{miles(modo === "mapas" ? paneles.length : filas.length)}</b>
+          &nbsp;rutas en {tab}
+        </span>
+        {modo === "mapas" && sinUbicVisibles.length > 0 && (
           <button className={`chip warn chip-accion${verSinUbic ? " active" : ""}`} onClick={() => setVerSinUbic((v) => !v)}
             title="Locales de la ruta sin latitud/longitud: no se pueden dibujar">
             📍 {miles(sinUbicVisibles.length)} sin ubicación {verSinUbic ? "▲" : "▼"}
           </button>
         )}
+        {/* Una sola leyenda para los tres modos: el color siempre dice el estado,
+            sea un pin del mapa, un punto de la línea de tiempo o del recorrido. */}
         <div className="mapa-leyenda">
           {ESTADOS.map((e) => (
             <span key={e} className="donut-leg-item">
@@ -151,7 +204,7 @@ export default function MapaPage() {
         </div>
       </div>
 
-      {verSinUbic && sinUbicVisibles.length > 0 && (
+      {modo === "mapas" && verSinUbic && sinUbicVisibles.length > 0 && (
         <div className="card card-pad mapa-sinubic">
           <div className="section-title" style={{ margin: "0 0 8px" }}>
             Locales sin coordenadas · se geocodifican en la intranet (ficha del local)
@@ -175,7 +228,28 @@ export default function MapaPage() {
         </div>
       )}
 
-      {paneles.length === 0 ? (
+      {faltaCampo ? (
+        <div className="estado">
+          <div className="estado-ic">{avisoCampo.ic}</div>
+          <div className="estado-tit">{avisoCampo.tit}</div>
+          <p className="muted">
+            Este snapshot lo generó una versión del publisher anterior a esta vista. Usá ↺ (Forzar recálculo)
+            para pedir uno nuevo; si sigue igual, falta desplegar el Lambda.
+          </p>
+        </div>
+      ) : modo === "tiempo" ? (
+        filas.length === 0 ? (
+          <p className="muted">Ninguna ruta de {tab} coincide con los filtros.</p>
+        ) : (
+          <TimelineRutas filas={filas} ventana={ventana} colorCentro={colorCentro} />
+        )
+      ) : modo === "video" ? (
+        filas.length === 0 ? (
+          <p className="muted">Ninguna ruta de {tab} coincide con los filtros.</p>
+        ) : (
+          <ReproduccionRutas filas={filas} ventana={ventana} colorCentro={colorCentro} />
+        )
+      ) : paneles.length === 0 ? (
         <p className="muted">Ninguna ruta de {tab} coincide con los filtros.</p>
       ) : (
         <div className="mapa-paneles">

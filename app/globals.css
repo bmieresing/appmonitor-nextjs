@@ -170,6 +170,9 @@ body.kiosk .toolbar { margin-bottom: 10px; }
 }
 .card-pad { padding: 16px 18px; }
 .section-title { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin: 22px 2px 12px; }
+/* Aclaración dentro de un título de sección: en minúsculas y más liviana, para que
+   el título se lea de un golpe y el detalle no compita con él. */
+.sec-sub { font-weight: 500; text-transform: none; letter-spacing: 0; opacity: .72; }
 
 /* ── Fila KPI ───────────────────────────────────────────────── */
 .kpi-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; }
@@ -192,6 +195,13 @@ body.kiosk .toolbar { margin-bottom: 10px; }
 .donut-leg-dot { width: 10px; height: 10px; border-radius: 3px; flex: 0 0 auto; }
 .donut-leg-name { font-weight: 500; }
 .donut-leg-val { font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* Los nombres nunca se cortan: cada segmento se mantiene entero y la leyenda baja
+   de fila cuando no entra. La columna es angosta y las razones de fallo cambian con
+   cada chofer, así que se compactan el tipo y el espaciado para que haga falta la
+   menor cantidad de filas posible. */
+.donut-legend { gap: 5px 12px; }
+.donut-legend .donut-leg-item { flex: 0 0 auto; gap: 5px; font-size: 11.5px; white-space: nowrap; }
 
 /* Barras de efectividad por chofer (tab Rendimiento), 100% DOM/CSS */
 .rend-legend { display: flex; gap: 16px; justify-content: flex-end; margin-bottom: 12px; font-size: 12px; color: var(--text-2); }
@@ -371,16 +381,37 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
 .hero-metric .track { background: rgba(255,255,255,0.25); margin-top: 6px; }
 @media (max-width: 760px) { .hero { grid-template-columns: 1fr; } }
 
-.grid-2 { display: grid; grid-template-columns: 1.1fr 1.6fr; gap: 16px; }
+/* Cuerpo del carrusel. La columna izquierda se acota al gráfico —el donut mide lo
+   mismo en cualquier pantalla, así que estirarla solo agregaba aire alrededor del
+   aro— y todo el ancho sobrante se va a la derecha, donde el mapa sí lo aprovecha. */
+.grid-2 { display: grid; grid-template-columns: minmax(320px, 525px) 1fr; gap: 16px; }
 @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
 .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 16px; }
-/* Listas del carrusel, como el original: dos sub-columnas —Más+Menos apilados a
-   la izquierda, Por producto a la derecha— que hacen wrap (stack) si no caben. */
+/* Pestaña Global del carrusel: se separa del resto de las pills con un borde de
+   acento, porque no es un chofer más sino la consolidación de todos. */
+.chip-btn-global { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); font-weight: 800; }
+.chip-btn-global.active { background: var(--accent); border-color: var(--accent); }
+
+/* Columna izquierda del carrusel: desglose de visitas + productos, apilados. Son
+   las dos lecturas del mismo total de la ruta, y juntas le dan a la columna un alto
+   parecido al de la derecha (antes el desglose iba solo y se estiraba). */
+.carrusel-col { display: flex; flex-direction: column; gap: 16px; align-content: flex-start; }
+/* Columna derecha: dos sub-columnas —los dos rankings apilados a la izquierda, el
+   mapa de la ruta a la derecha— que hacen wrap (stack) si no caben. */
 .carrusel-lists { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
 .lists-col { flex: 1 1 280px; min-width: min(280px, 100%); display: flex; flex-direction: column; gap: 16px; }
+/* Los rankings son dos tablas de dos columnas: con ~300px ya se leen enteros. El
+   resto va al mapa, que es lo único de la vista que mejora con cada píxel. */
+.lists-col-mapa { flex: 2 1 420px; min-width: min(360px, 100%); }
+/* La línea de tiempo cierra la columna derecha: fuerza fila propia (basis 100%) y
+   ocupa desde el borde izquierdo de los rankings hasta el final del mapa. */
+.carrusel-tl { flex: 1 1 100%; min-width: 0; }
 
-/* Tabla de magnitud (Top litros / productos): encabezados + barra fina coral en
-   la columna de litros (relativa al máximo de la lista). */
+/* Tabla de magnitud (aporte por local / productos): encabezados + barra fina en la
+   columna de litros, relativa al máximo de la lista. El color lo decide cada tabla
+   vía `colorDe` en BarTable —verde de marca por magnitud en "Mayor aporte",
+   rojo→ámbar en "Menor aporte", color del producto en la tercera—; `--bar` queda
+   como fallback para las que no pasen ninguno. */
 .bartable td:first-child { white-space: normal; }         /* nombres largos hacen wrap */
 .bartable .bar-td { min-width: 150px; white-space: nowrap; }
 .dbar-cell { display: flex; align-items: center; gap: 8px; }
@@ -430,13 +461,18 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
 .mapa-leyenda .donut-leg-dot { border-radius: 50%; }
 .mapa-leyenda-sep { width: 1px; height: 16px; background: var(--border); }
 /* Pin de local (divIcon). La sombra lo despega del mapa; sin ella el borde blanco
-   se confunde con las calles claras de la cartografía. */
-.mapa-pin { filter: drop-shadow(0 1.5px 2px rgba(0,0,0,.4)); line-height: 0; }
-.mapa-pin svg { display: block; }
+   se confunde con las calles claras de la cartografía. Va en el SVG y no en el
+   contenedor para no ensuciar las ondas de la reproducción, que son hermanas del
+   pin dentro del mismo marcador. */
+.mapa-pin { line-height: 0; }
+.mapa-pin svg { display: block; filter: drop-shadow(0 1.5px 2px rgba(0,0,0,.4)); }
 /* Mismo pin, en chico, para la leyenda. */
 .mapa-leg-pin { flex: 0 0 auto; line-height: 0; }
 .mapa-leg-pin svg { display: block; }
 .mapa-sinubic { margin-bottom: 12px; }
+/* Encabezado de la card del mapa del carrusel: título a la izquierda y el toggle
+   Mapa ⇄ Recorrido a la derecha. */
+.mapa-ruta-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
 
 /* Tabs por tramo del país (Norte · Santiago · Sur), cada uno con su avance. */
 .mapa-tabs { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
@@ -492,6 +528,159 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
 @media (max-width: 1100px) {
   .mapa-leyenda { margin-left: 0; }
   .mapa-panel { height: 260px; }
+}
+
+/* ── Vista Mapa · selector de modo (Mapas · Tiempo · Densidad) ──
+   Segmented control: los tres modos son la misma pregunta mirada distinto, así
+   que van juntos en un mismo riel y no como tres botones sueltos. */
+.modo-sw { display: flex; gap: 3px; padding: 3px; border-radius: 11px; background: var(--surface-2); border: 1px solid var(--border); }
+.modo-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border: none; border-radius: 8px; cursor: pointer;
+  background: transparent; color: var(--muted);
+  font-family: inherit; font-size: 12.5px; font-weight: 700; white-space: nowrap;
+  transition: background .14s, color .14s;
+}
+.modo-btn:hover { color: var(--text); }
+.modo-btn.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.10); }
+.modo-ic { font-size: 13px; line-height: 1; }
+/* Versión chica, en el encabezado de una card (carrusel: Mapa ⇄ Recorrido). */
+.modo-sw-mini { flex: 0 0 auto; padding: 2px; border-radius: 9px; }
+.modo-sw-mini .modo-btn { padding: 4px 9px; font-size: 11px; border-radius: 7px; }
+
+/* ── Línea de tiempo de rutas ───────────────────────────────────
+   Una fila por ruta sobre un eje horario común. DOM y CSS (no canvas): son pocos
+   puntos por fila y así los nombres, las horas y el tooltip quedan nítidos a
+   cualquier zoom, igual que las barras de Rendimiento. */
+.tl { display: flex; flex-direction: column; gap: 10px; }
+.tl-eje, .tl-fila { display: grid; grid-template-columns: 158px 1fr 92px; align-items: center; gap: 12px; }
+/* Variante del carrusel: una sola ruta y sin columna de nombre (ya está en el
+   hero), así el track se lleva todo el ancho de la pantalla. */
+.tl-solo .tl-eje, .tl-solo .tl-fila { grid-template-columns: 1fr 100px; }
+.tl-solo .tl-fila:hover { background: transparent; }
+.tl-eje-track { position: relative; height: 15px; }
+.tl-eje-h { position: absolute; top: 0; transform: translateX(-50%); font-size: 10.5px; color: var(--muted); white-space: nowrap; }
+.tl-filas { display: flex; flex-direction: column; gap: 3px; }
+.tl-fila { padding: 4px 0; border-radius: 8px; transition: background .14s; }
+.tl-fila:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+
+.tl-lbl { min-width: 0; }
+.tl-lbl-tit { font-size: 12.5px; font-weight: 800; letter-spacing: -0.1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tl-lbl-ruta { margin-top: 3px; font-size: 10px; font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* El track es el lienzo de la fila: guías horarias al fondo, el tramo recorrido
+   encima y los puntos de visita arriba de todo. */
+.tl-track { position: relative; height: 26px; }
+/* Con reproducción activa el track es también la barra del video. */
+.tl-track-click { cursor: pointer; }
+.tl-guia { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--grid); }
+.tl-recorrido { position: absolute; top: 50%; height: 3px; margin-top: -1.5px; border-radius: 999px; background: var(--grid); }
+/* Hueco largo sin registrar: la anomalía que esta vista busca. */
+.tl-gap { position: absolute; top: 50%; height: 3px; margin-top: -1.5px; border-radius: 999px; background: repeating-linear-gradient(90deg, var(--warning) 0 4px, transparent 4px 8px); cursor: help; }
+.tl-gap::before { content: ""; position: absolute; inset: -9px 0; }  /* área de hover cómoda */
+
+.tl-pt {
+  position: absolute; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px;
+  border-radius: 50%; border: 1.5px solid var(--surface); cursor: help;
+  transition: transform .12s ease, opacity .2s ease;
+}
+.tl-pt:hover { transform: scale(1.55); z-index: 3; }
+/* Prioridad y emergencia van como FORMA, no como segundo color: el relleno ya
+   lleva el estado (mismo criterio que los pines del mapa). */
+.tl-pt.alta { width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 3px; transform: rotate(45deg); }
+.tl-pt.alta:hover { transform: rotate(45deg) scale(1.45); }
+.tl-pt.emerg { box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--critical) 70%, transparent); }
+
+.tl-kpis { display: flex; flex-direction: column; align-items: flex-end; }
+.tl-kpis b { font-size: 15px; line-height: 1.1; }
+.tl-kpis-det { font-size: 10px; color: var(--muted); margin-top: 2px; white-space: nowrap; }
+
+.tl-pie { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding-top: 10px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); }
+.tl-pie-item { display: flex; align-items: center; gap: 6px; }
+/* Las muestras del pie son el mismo punto, fuera del track: sin posicionamiento
+   absoluto ni los márgenes negativos que lo centran sobre su hora. */
+.tl-pie .tl-pt { position: static; margin: 0; flex: 0 0 auto; cursor: default; }
+.tl-pie .tl-pt.alta { margin: 0 2px; }
+.tl-gap-muestra { width: 26px; height: 3px; border-radius: 999px; background: repeating-linear-gradient(90deg, var(--warning) 0 4px, transparent 4px 8px); }
+.tl-pie-nota { margin-left: auto; font-style: italic; }
+
+/* ── Reproducción del recorrido ─────────────────────────────────
+   La misma grilla de paneles de Mapas, gobernada por un reloj común: controles y
+   barra de tiempo arriba, y abajo `.mapa-paneles` sin cambios. */
+.rep { display: flex; flex-direction: column; gap: 12px; }
+.rep-barra { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+/* Transporte compacto: en el carrusel va debajo de la card del mapa, y la barra de
+   tiempo es la línea de tiempo de más abajo (no se repite acá). */
+.rep-barra-mini { gap: 8px; padding: 9px 13px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); }
+.rep-barra-mini .icon-btn { width: 32px; height: 32px; }
+.rep-barra-mini .rep-reloj { font-size: 19px; }
+.rep-vel { display: flex; gap: 3px; padding: 3px; border-radius: 9px; background: var(--surface-2); border: 1px solid var(--border); }
+.rep-vel-btn { padding: 4px 10px; border: none; border-radius: 7px; cursor: pointer; background: transparent; color: var(--muted); font-family: inherit; font-size: 11.5px; font-weight: 700; transition: background .14s, color .14s; }
+.rep-vel-btn:hover { color: var(--text); }
+.rep-vel-btn.active { background: var(--surface); color: var(--text); }
+.rep-reloj { margin-left: auto; font-size: 26px; font-weight: 800; letter-spacing: -0.8px; font-variant-numeric: tabular-nums; }
+
+.rep-tiempo { padding: 4px 2px 0; }
+/* Mismo lenguaje que la línea de tiempo (guías, recorrido, huecos, puntos), más
+   el cursor del reloj. Clickeable: saltar a una hora es parte de "reproducir". */
+.rep-track { position: relative; height: 26px; cursor: pointer; }
+/* Tramo ya reproducido, sobre el recorrido completo del tramo del país. */
+.rep-avance { position: absolute; top: 50%; height: 3px; margin-top: -1.5px; border-radius: 999px; background: var(--accent); opacity: .55; }
+.rep-cursor { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--accent); box-shadow: 0 0 7px var(--accent); border-radius: 2px; pointer-events: none; transition: left .24s linear; }
+.rep-cursor::before { content: ""; position: absolute; top: -3px; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: var(--accent); }
+.rep-eje { position: relative; height: 15px; margin-top: 2px; }
+
+/* Pines del recorrido: el local aún no visitado es un punto tenue (no un pin); el
+   recién registrado salta al entrar y el de la visita en curso late.
+
+   IMPORTANTE: las animaciones van sobre el SVG interior, NUNCA sobre `.mapa-pin`.
+   Ese elemento es el marcador que Leaflet posiciona con un `transform` inline, y
+   una animación sobre el mismo elemento gana en la cascada: el pin se iría al
+   origen del mapa mientras dure. */
+.mapa-pin-off .pin-off { display: block; width: 10px; height: 10px; border-radius: 50%; opacity: .45; border: 1.5px solid var(--surface); }
+.mapa-pin svg { transform-origin: 50% 100%; }   /* la punta del pin es el local */
+
+/* Entrada: el local que se acaba de registrar cae y rebota. Es lo que lo hace
+   visible cuando queda rodeado de pines ya encendidos. */
+.mapa-pin-in svg { animation: pin-entra .5s cubic-bezier(.34, 1.56, .64, 1); }
+@keyframes pin-entra {
+  0%   { transform: translateY(-18px) scale(.55); opacity: 0; }
+  55%  { transform: translateY(0) scale(1.28); opacity: 1; }
+  100% { transform: translateY(0) scale(1); }
+}
+
+/* Visita en curso: latido continuo + onda expansiva. La onda es la que resuelve el
+   solapamiento de verdad — crece más allá del pin, así que se ve aunque el
+   marcador esté tapado por sus vecinos. */
+.mapa-pin-actual svg { animation: pin-late 1.15s ease-in-out infinite; }
+.mapa-pin-actual.mapa-pin-in svg { animation: pin-entra .5s cubic-bezier(.34, 1.56, .64, 1), pin-late 1.15s ease-in-out .5s infinite; }
+@keyframes pin-late {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.16); }
+}
+.pin-onda {
+  position: absolute; left: 50%; bottom: 0; width: 15px; height: 15px;
+  margin: 0 0 -7.5px -7.5px; border-radius: 50%;
+  border: 2.5px solid currentColor; pointer-events: none;
+  animation: pin-onda 1.5s ease-out infinite;
+}
+.pin-onda.tardia { animation-delay: .55s; }   /* segunda onda: la lectura es más continua */
+@keyframes pin-onda {
+  0%   { transform: scale(.35); opacity: .85; }
+  100% { transform: scale(3.6); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mapa-pin-actual svg, .mapa-pin-in svg, .mapa-pin-actual.mapa-pin-in svg { animation: none; }
+  .pin-onda { display: none; }
+  .rep-cursor { transition: none; }
+}
+
+@media (max-width: 900px) {
+  .tl-eje, .tl-fila { grid-template-columns: 112px 1fr 76px; gap: 8px; }
+  .tl-solo .tl-eje, .tl-solo .tl-fila { grid-template-columns: 1fr 76px; }
+  .tl-pie-nota { margin-left: 0; }
+  .rep-reloj { font-size: 21px; }
 }
 
 /* ── Responsive: tablet y móvil ─────────────────────────────── */

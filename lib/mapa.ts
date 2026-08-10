@@ -17,6 +17,10 @@ export interface PuntoMapa extends DetalleLocal {
 export interface DatosMapa {
   puntos: PuntoMapa[];          // solo los que tienen coordenadas válidas
   sinUbicacion: PuntoMapa[];    // el resto: existen en la ruta, no se pueden dibujar
+  /** Todos, con y sin coordenadas. La línea de tiempo se ordena por hora, no por
+   *  posición: un local sin geocodificar igual tiene hora de visita y dejarlo
+   *  afuera falsearía el ritmo de la ruta. */
+  todos: PuntoMapa[];
   total: number;
   /** El snapshot vigente es anterior al mapa (ningún local trae el campo lat). */
   sinSoporte: boolean;
@@ -24,7 +28,7 @@ export interface DatosMapa {
 
 /** Aplana `carrusel[].detalle[]` a puntos y los separa por si tienen coordenadas. */
 export function puntosDeSnapshot(snap: Snapshot | null): DatosMapa {
-  const vacio: DatosMapa = { puntos: [], sinUbicacion: [], total: 0, sinSoporte: false };
+  const vacio: DatosMapa = { puntos: [], sinUbicacion: [], todos: [], total: 0, sinSoporte: false };
   if (!snap) return vacio;
 
   const todos: PuntoMapa[] = [];
@@ -41,7 +45,7 @@ export function puntosDeSnapshot(snap: Snapshot | null): DatosMapa {
   const sinSoporte = todos.every((p) => p.lat === undefined);
   const puntos = todos.filter((p) => tieneCoords(p));
   const sinUbicacion = todos.filter((p) => !tieneCoords(p));
-  return { puntos, sinUbicacion, total: todos.length, sinSoporte };
+  return { puntos, sinUbicacion, todos, total: todos.length, sinSoporte };
 }
 
 export function tieneCoords(p: PuntoMapa | DetalleLocal): boolean {

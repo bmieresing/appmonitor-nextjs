@@ -17,11 +17,11 @@ import type { PuntoMapa } from "@/lib/mapa";
 
 // Tiles CARTO (sobre datos de OpenStreetMap): tienen variante clara y oscura, que
 // es lo que permite que el mapa acompañe al tema del resto del dashboard.
-const TILES: Record<string, string> = {
+export const TILES: Record<string, string> = {
   light: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
   dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
 };
-const ATRIBUCION =
+export const ATRIBUCION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · ' +
   '&copy; <a href="https://carto.com/attributions">CARTO</a>';
 
@@ -40,9 +40,9 @@ function esc(s: unknown): string {
 //
 // El tamaño es fijo: la magnitud (litros) se lee en el popup y en el encabezado
 // del panel, no en el mapa, donde solo agrega ruido y solapamiento.
-const PIN_W = 22, PIN_H = 28;
+export const PIN_W = 22, PIN_H = 28;
 
-function pinSvg(color: string, simbolo: string | null): string {
+export function pinSvg(color: string, simbolo: string | null): string {
   const centro = simbolo
     ? `<text x="11" y="14.6" text-anchor="middle" font-size="11.5" font-weight="800" fill="#ffffff">${simbolo}</text>`
     : `<circle cx="11" cy="10.6" r="3.3" fill="#ffffff" fill-opacity="0.92"/>`;
@@ -53,7 +53,7 @@ function pinSvg(color: string, simbolo: string | null): string {
   );
 }
 
-function popupHtml(p: PuntoMapa, estColor: string): string {
+export function popupHtml(p: PuntoMapa, estColor: string): string {
   const filas: [string, string][] = [
     ["Estado", `<span style="color:${estColor}">${esc(p.estado)}</span>`],
     ["Litros", p.litros > 0 ? `${miles(p.litros)} L` : "—"],

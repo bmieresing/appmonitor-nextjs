@@ -116,6 +116,11 @@ export type DetalleLocal = {
   emergencia?: boolean;       // el local está marcado como emergencia
   estado: string;             // "Realizado" | "No alcanzado" | "Fallido" | "Pendiente"
   razon: string | null;       // nombre de la razón de fallo
+  // Hora "HH:MM" en que la app del chofer registró la visita (VistaMonitor.FechaVisita).
+  // null = todavía no se visitó; ausente si el snapshot lo generó un Lambda anterior
+  // a la línea de tiempo. Alimenta la línea de tiempo (vista Mapa y carrusel) y la
+  // reproducción del recorrido.
+  hora?: string | null;
   litros: number;
   productos: { producto: string; litros: number }[];
   // Coordenadas de LocalesRuta (vía dim.local). null = local sin geocodificar o
