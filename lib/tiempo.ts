@@ -29,11 +29,14 @@ export function aMinutos(hora: string | null | undefined): number | null {
   return h * 60 + min;
 }
 
-/** Minutos desde medianoche → "HH:MM". */
+/** Minutos desde medianoche → "HH:MM". Acepta fracciones: el reloj de la
+ *  reproducción avanza de a menos de un minuto en las velocidades lentas. Se
+ *  redondea el total ANTES de partirlo en horas y minutos — al revés, 599,75
+ *  daría hora 9 y minuto 60 ("09:60"). */
 export function hhmm(min: number): string {
-  const h = Math.floor(min / 60);
-  const m = Math.round(min - h * 60);
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  const total = Math.round(min);
+  const h = Math.floor(total / 60);
+  return `${String(h).padStart(2, "0")}:${String(total - h * 60).padStart(2, "0")}`;
 }
 
 /** "1 h 20 min" · "45 min". Para los huecos entre visitas. */
@@ -154,4 +157,33 @@ export function filasTiempo(rutas: RutaTiempo[]): FilaTiempo[] {
  *  mostrar. */
 export function sinSoporteHora(puntos: PuntoMapa[]): boolean {
   return puntos.length > 0 && puntos.every((p) => p.hora === undefined);
+}
+
+// ── Agrupación de visitas cercanas ───────────────────────────────────────
+// Una tripulación registra varios locales seguidos (un mall, una galería) y en el
+// eje esos puntos caen encima unos de otros: se ve un solo punto y no hay forma de
+// llegar a los de abajo. Se agrupan por cercanía y el grupo se despliega al click.
+
+/** Separación mínima para que dos visitas se dibujen como puntos distintos, como
+ *  fracción de la ventana. 1,2 % de un eje típico son unos pocos minutos: por
+ *  debajo de eso los puntos ya se pisan a cualquier ancho de pantalla. */
+const SEPARACION = 0.012;
+
+export interface GrupoVisitas {
+  min: number;             // posición del grupo en el eje (la primera visita)
+  eventos: EventoVisita[]; // en orden cronológico; largo 1 = punto suelto
+}
+
+/** Agrupa visitas consecutivas separadas por menos del umbral. El grupo se ancla en
+ *  la primera: así el marcador queda donde empieza la tanda, no en un promedio que
+ *  no corresponde a ninguna visita real. */
+export function agruparVisitas(eventos: EventoVisita[], v: Ventana): GrupoVisitas[] {
+  const umbral = Math.max(1, (v.hasta - v.desde) * SEPARACION);
+  const grupos: GrupoVisitas[] = [];
+  for (const ev of eventos) {
+    const ultimo = grupos[grupos.length - 1];
+    if (ultimo && ev.min - ultimo.min <= umbral) ultimo.eventos.push(ev);
+    else grupos.push({ min: ev.min, eventos: [ev] });
+  }
+  return grupos;
 }

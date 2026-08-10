@@ -10,12 +10,29 @@
 // app/rendimiento/page.tsx). Los puntos son pocos por fila y así los nombres y
 // las horas quedan nítidos a cualquier zoom, con el tooltip `has-tip` que ya usan
 // los tanques.
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { estiloRuta } from "@/components/CentroColores";
 import { useTheme } from "@/components/ThemeProvider";
 import { estadoColor, semaforo } from "@/lib/theme";
 import { miles } from "@/lib/format";
-import { duracion, hhmm, posicion, GAP_MIN, type FilaTiempo, type Ventana } from "@/lib/tiempo";
+import {
+  agruparVisitas, duracion, hhmm, posicion, GAP_MIN,
+  type EventoVisita, type FilaTiempo, type Ventana,
+} from "@/lib/tiempo";
+
+/** Texto del tooltip de una visita. Mismo contenido suelta o dentro de un grupo. */
+function tipDe(ev: EventoVisita): string {
+  return `${hhmm(ev.min)} · ${ev.punto.local}\n`
+    + `${ev.punto.estado}${ev.punto.razon ? ` — ${ev.punto.razon}` : ""}\n`
+    + `${miles(ev.punto.litros)} L · prioridad ${ev.punto.prioridad}`
+    + (ev.punto.emergencia ? "\n⚠ Emergencia" : "")
+    + (ev.gapPrevio > 0 ? `\n${duracion(ev.gapPrevio)} desde la anterior` : "");
+}
+
+/** Modificadores de forma del punto: prioridad Alta (rombo) y emergencia (halo). */
+function claseDe(ev: EventoVisita): string {
+  return `${ev.punto.prioridad === "Alta" ? " alta" : ""}${ev.punto.emergencia ? " emerg" : ""}`;
+}
 
 export default function TimelineRutas({
   filas,
@@ -39,6 +56,24 @@ export default function TimelineRutas({
   onSaltar?: (minuto: number) => void;
 }) {
   const { tokens: t } = useTheme();
+  // Grupo desplegado, como "<ruta>|<índice>". Uno solo a la vez: dos tandas abiertas
+  // se pisan entre sí y la fila se vuelve ilegible.
+  const [abiertoId, setAbiertoId] = useState<string | null>(null);
+
+  const grupos = useMemo(
+    () => new Map(filas.map((f) => [f.ruta.id, agruparVisitas(f.eventos, ventana)] as const)),
+    [filas, ventana],
+  );
+
+  // Cerrar con click afuera o con Escape.
+  useEffect(() => {
+    if (!abiertoId) return;
+    const cerrar = () => setAbiertoId(null);
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setAbiertoId(null); };
+    document.addEventListener("click", cerrar);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("click", cerrar); document.removeEventListener("keydown", esc); };
+  }, [abiertoId]);
 
   const clickTrack = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!onSaltar) return;
@@ -111,25 +146,62 @@ export default function TimelineRutas({
                   />
                 )}
 
-                {f.eventos.map((ev, i) => (
-                  <span
-                    key={`${ev.punto.id_local}-${i}`}
-                    className={`tl-pt has-tip${ev.punto.prioridad === "Alta" ? " alta" : ""}${ev.punto.emergencia ? " emerg" : ""}`}
-                    style={{
-                      left: `${posicion(ev.min, ventana)}%`,
-                      background: estadoColor(ev.punto.estado, t),
-                      // Con reproducción activa, lo que aún no ocurrió se atenúa.
-                      opacity: cursor !== null && ev.min > cursor ? 0.26 : 1,
-                    }}
-                    data-tip={
-                      `${hhmm(ev.min)} · ${ev.punto.local}\n`
-                      + `${ev.punto.estado}${ev.punto.razon ? ` — ${ev.punto.razon}` : ""}\n`
-                      + `${miles(ev.punto.litros)} L · prioridad ${ev.punto.prioridad}`
-                      + (ev.punto.emergencia ? "\n⚠ Emergencia" : "")
-                      + (ev.gapPrevio > 0 ? `\n${duracion(ev.gapPrevio)} desde la anterior` : "")
-                    }
-                  />
-                ))}
+                {/* Visitas: sueltas cuando hay lugar, agrupadas cuando caerían una
+                    encima de otra. El grupo se abre al click y despliega la tanda
+                    hacia arriba, una visita por línea. */}
+                {(grupos.get(ruta.id) ?? []).map((g, gi) => {
+                  const solo = g.eventos.length === 1;
+                  const abierto = abiertoId === `${ruta.id}|${gi}`;
+                  const izq = `${posicion(g.min, ventana)}%`;
+                  const atenuado = cursor !== null && g.min > cursor;
+
+                  if (solo) {
+                    const ev = g.eventos[0];
+                    return (
+                      <span key={gi} className="tl-pt has-tip" style={{ left: izq }} data-tip={tipDe(ev)}>
+                        <span className={`tl-pt-f${claseDe(ev)}`}
+                          style={{ background: estadoColor(ev.punto.estado, t), opacity: atenuado ? 0.26 : 1 }} />
+                      </span>
+                    );
+                  }
+
+                  return (
+                    <span key={gi} className={`tl-grupo${abierto ? " abierto" : ""}`} style={{ left: izq }}>
+                      <button className="tl-grupo-btn"
+                        title={`${g.eventos.length} visitas entre ${hhmm(g.eventos[0].min)} y ${hhmm(g.eventos[g.eventos.length - 1].min)}`}
+                        onClick={(e) => { e.stopPropagation(); setAbiertoId(abierto ? null : `${ruta.id}|${gi}`); }}
+                        style={{ opacity: atenuado ? 0.4 : 1 }}>
+                        <span className="tl-grupo-n tnum">{g.eventos.length}</span>
+                        <span className="tl-grupo-barras">
+                          {g.eventos.slice(0, 6).map((ev, i) => (
+                            <i key={i} style={{ background: estadoColor(ev.punto.estado, t) }} />
+                          ))}
+                        </span>
+                      </button>
+
+                      {abierto && (
+                        <div className="tl-grupo-pop" onClick={(e) => e.stopPropagation()}>
+                          <div className="tl-grupo-pop-tit">
+                            {hhmm(g.eventos[0].min)}–{hhmm(g.eventos[g.eventos.length - 1].min)}
+                            <span> · {g.eventos.length} visitas</span>
+                          </div>
+                          {g.eventos.map((ev, i) => (
+                            <div key={i} className="tl-grupo-item">
+                              <span className="tl-grupo-hora tnum">{hhmm(ev.min)}</span>
+                              <span className={`tl-pt-f${claseDe(ev)}`} style={{ background: estadoColor(ev.punto.estado, t) }} />
+                              <span className="tl-grupo-local" title={ev.punto.local}>
+                                {ev.punto.emergencia ? "🚨 " : ev.punto.prioridad === "Alta" ? "⭐ " : ""}{ev.punto.local}
+                              </span>
+                              <span className="tl-grupo-est" style={{ color: estadoColor(ev.punto.estado, t) }}>
+                                {ev.punto.litros > 0 ? `${miles(ev.punto.litros)} L` : ev.punto.estado}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </span>
+                  );
+                })}
 
                 {cursor !== null && (
                   <span className="rep-cursor" style={{ left: `${posicion(cursor, ventana)}%` }} />
@@ -153,10 +225,13 @@ export default function TimelineRutas({
           <span className="tl-gap-muestra" /> hueco de {GAP_MIN} min o más sin registrar
         </span>
         <span className="tl-pie-item">
-          <span className="tl-pt alta" style={{ background: t.textSecondary }} /> prioridad Alta
+          <span className="tl-pt-f alta" style={{ background: t.textSecondary }} /> prioridad Alta
         </span>
         <span className="tl-pie-item">
-          <span className="tl-pt emerg" style={{ background: t.textSecondary }} /> emergencia
+          <span className="tl-pt-f emerg" style={{ background: t.textSecondary }} /> emergencia
+        </span>
+        <span className="tl-pie-item">
+          <span className="tl-grupo-muestra"><b className="tnum">3</b></span> visitas juntas · click para verlas
         </span>
         <span className="tl-pie-nota">
           La hora es la del registro en la app del chofer, no la de llegada al local.

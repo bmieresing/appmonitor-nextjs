@@ -9,7 +9,13 @@ import { useCallback, useEffect, useState } from "react";
 
 const TICK_MS = 260;
 
+// Minutos de jornada por tick. Las lentas avanzan una fracción de minuto en vez de
+// espaciar el tick: así el frame rate es el mismo en todas y a ¼× la reproducción
+// se ve fluida, no a saltos. El reloj se muestra redondeado, de modo que un paso de
+// 0,75 min simplemente tarda un par de ticks en cambiar de minuto.
 export const VELOCIDADES = [
+  { x: 0.25, min: 0.75, label: "¼×" },
+  { x: 0.5, min: 1.5, label: "½×" },
   { x: 1, min: 3, label: "1×" },
   { x: 2, min: 6, label: "2×" },
   { x: 4, min: 14, label: "4×" },

@@ -579,17 +579,68 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
 .tl-gap { position: absolute; top: 50%; height: 3px; margin-top: -1.5px; border-radius: 999px; background: repeating-linear-gradient(90deg, var(--warning) 0 4px, transparent 4px 8px); cursor: help; }
 .tl-gap::before { content: ""; position: absolute; inset: -9px 0; }  /* área de hover cómoda */
 
-.tl-pt {
-  position: absolute; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px;
-  border-radius: 50%; border: 1.5px solid var(--surface); cursor: help;
+/* El punto es un contenedor de área fija que NUNCA se transforma: es el que lleva
+   el tooltip (`has-tip::after` es su hijo). La forma va en un `<i>` interior, que sí
+   puede escalar o recortarse sin arrastrar al texto — antes el rombo de prioridad
+   Alta rotaba el punto 45° y el hover lo escalaba, y el tooltip salía en diagonal y
+   deformado. El contenedor además da un área de hover cómoda. */
+.tl-pt { position: absolute; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px; cursor: help; }
+.tl-pt:hover { z-index: 4; }
+.tl-pt-f {
+  position: absolute; inset: 4px; border-radius: 50%; border: 1.5px solid var(--surface);
   transition: transform .12s ease, opacity .2s ease;
 }
-.tl-pt:hover { transform: scale(1.55); z-index: 3; }
+.tl-pt:hover .tl-pt-f { transform: scale(1.5); }
 /* Prioridad y emergencia van como FORMA, no como segundo color: el relleno ya
-   lleva el estado (mismo criterio que los pines del mapa). */
-.tl-pt.alta { width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 3px; transform: rotate(45deg); }
-.tl-pt.alta:hover { transform: rotate(45deg) scale(1.45); }
-.tl-pt.emerg { box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--critical) 70%, transparent); }
+   lleva el estado (mismo criterio que los pines del mapa). El rombo se recorta con
+   clip-path en vez de rotarse, y el drop-shadow reemplaza al borde, que clip-path
+   recortaría. */
+.tl-pt-f.alta {
+  inset: 2.5px; border: none;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  filter: drop-shadow(0 0 1.5px var(--surface)) drop-shadow(0 0 1px var(--surface));
+}
+.tl-pt-f.emerg { box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--critical) 70%, transparent); }
+/* Alta + emergencia: clip-path recorta el box-shadow, así que el halo va por filtro. */
+.tl-pt-f.alta.emerg { box-shadow: none; filter: drop-shadow(0 0 2.5px var(--critical)) drop-shadow(0 0 1px var(--surface)); }
+
+/* ── Grupo de visitas juntas ─────────────────────────────────────
+   Una tripulación registra varios locales seguidos (un mall, una galería) y esos
+   puntos caen encima unos de otros. El grupo los reemplaza por un botón con la
+   cuenta, que al abrirse despliega la tanda hacia arriba, una visita por línea. */
+.tl-grupo { position: absolute; top: 50%; margin-top: -10px; transform: translateX(-50%); }
+.tl-grupo-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 2px 5px; border: 1px solid var(--border); border-radius: 7px;
+  background: var(--surface); color: var(--text); cursor: pointer;
+  font-family: inherit; line-height: 1; box-shadow: 0 1px 3px rgba(0,0,0,.14);
+  transition: border-color .14s, transform .12s ease;
+}
+.tl-grupo-btn:hover { border-color: var(--accent); transform: translateY(-1px); }
+.tl-grupo.abierto .tl-grupo-btn { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+.tl-grupo-n { font-size: 10.5px; font-weight: 800; }
+/* Mini-resumen: una rayita por visita con su color de estado, hasta seis. Deja ver
+   qué pasó en la tanda sin abrirla. */
+.tl-grupo-barras { display: flex; gap: 1.5px; }
+.tl-grupo-barras i { display: block; width: 2.5px; height: 5px; border-radius: 1px; }
+
+.tl-grupo-pop {
+  position: absolute; bottom: calc(100% + 7px); left: 50%; transform: translateX(-50%);
+  min-width: 250px; max-width: 340px; max-height: 260px; overflow-y: auto;
+  padding: 8px; border-radius: 11px; z-index: 30;
+  background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-lg);
+  cursor: default;
+}
+.tl-grupo-pop-tit { font-size: 11px; font-weight: 800; padding: 0 4px 6px; border-bottom: 1px solid var(--border); margin-bottom: 4px; white-space: nowrap; }
+.tl-grupo-pop-tit span { font-weight: 500; color: var(--muted); }
+.tl-grupo-item { display: grid; grid-template-columns: 38px 11px 1fr auto; align-items: center; gap: 7px; padding: 4px; border-radius: 6px; font-size: 12px; }
+.tl-grupo-item:hover { background: var(--surface-2); }
+.tl-grupo-hora { font-size: 10.5px; font-weight: 700; color: var(--muted); }
+/* El mismo punto de la línea, en tamaño fijo dentro de la lista. */
+.tl-grupo-item .tl-pt-f { position: static; inset: auto; width: 11px; height: 11px; }
+.tl-grupo-item .tl-pt-f.alta { width: 12px; height: 12px; }
+.tl-grupo-local { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tl-grupo-est { font-size: 11px; font-weight: 700; white-space: nowrap; }
 
 .tl-kpis { display: flex; flex-direction: column; align-items: flex-end; }
 .tl-kpis b { font-size: 15px; line-height: 1.1; }
@@ -597,10 +648,11 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
 
 .tl-pie { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding-top: 10px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); }
 .tl-pie-item { display: flex; align-items: center; gap: 6px; }
-/* Las muestras del pie son el mismo punto, fuera del track: sin posicionamiento
-   absoluto ni los márgenes negativos que lo centran sobre su hora. */
-.tl-pie .tl-pt { position: static; margin: 0; flex: 0 0 auto; cursor: default; }
-.tl-pie .tl-pt.alta { margin: 0 2px; }
+/* Las muestras del pie son la misma forma del punto, fuera del track: sin
+   posicionamiento absoluto ni los márgenes que lo centran sobre su hora. */
+.tl-pie .tl-pt-f { position: static; inset: auto; width: 10px; height: 10px; flex: 0 0 auto; }
+.tl-pie .tl-pt-f.alta { width: 12px; height: 12px; margin: 0 1px; }
+.tl-grupo-muestra { display: inline-flex; align-items: center; justify-content: center; min-width: 15px; height: 13px; padding: 0 3px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); font-size: 9px; font-weight: 800; color: var(--text); }
 .tl-gap-muestra { width: 26px; height: 3px; border-radius: 999px; background: repeating-linear-gradient(90deg, var(--warning) 0 4px, transparent 4px 8px); }
 .tl-pie-nota { margin-left: auto; font-style: italic; }
 
