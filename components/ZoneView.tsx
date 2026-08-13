@@ -7,11 +7,12 @@ import Link from "next/link";
 import KpiRow from "./KpiRow";
 import Tank from "./Tank";
 import CardChofer from "./CardChofer";
+import AvisoDesbalance from "./AvisoDesbalance";
 import AutoScrollCards from "./AutoScrollCards";
 import { useTheme } from "./ThemeProvider";
 import { useCentroColores } from "./CentroColores";
 import { miles } from "@/lib/format";
-import { semaforo, semaforoComp } from "@/lib/theme";
+import { semaforo } from "@/lib/theme";
 import type { Zona, Centro } from "@/lib/types";
 
 function CardCentro({ c }: { c: Centro }) {
@@ -19,6 +20,8 @@ function CardCentro({ c }: { c: Centro }) {
   const { colorDe } = useCentroColores();
   const pct = (r: number, tot: number) => (tot > 0 ? Math.round((r / tot) * 100) : 0);
   const totalAlta = c.total_alta ?? 0;
+  const pctLoc = pct(c.realizados, c.total);
+  const pctLit = pct(c.litros, c.prom);
   // Pinta la card con el color del centro (mapeo editable): borde + relleno tenue
   // + nombre en el color. Sin color asignado → card por defecto. Además la card es
   // un link a Regiones filtrado por este centro.
@@ -31,11 +34,13 @@ function CardCentro({ c }: { c: Centro }) {
     <Link href={`/regiones?centro=${encodeURIComponent(c.centro)}`} className="entity-card"
       style={cardStyle} title={`Ver choferes de ${c.centro} en Regiones`}>
       <div className="entity-head">
+        <AvisoDesbalance hayLocales={c.total > 0} pctLoc={pctLoc} pctAlta={pct(c.realizados_alta ?? 0, totalAlta)}
+          pctLit={pctLit} hayAlta={totalAlta > 0} hayEsperado={c.prom > 0} />
         <span className="entity-name" style={color ? { color } : undefined}>{c.centro}</span>
       </div>
       <div className="metric-row">
-        <Tank icon="💧" label="Litros" pct={pct(c.litros, c.prom)} color={semaforoComp(pct(c.litros, c.prom), t)} sub={`${miles(c.litros)} / ${miles(c.prom)} L`} />
-        <Tank icon="🏪" label="Locales" pct={pct(c.realizados, c.total)} color={semaforo(pct(c.realizados, c.total), t)} sub={`${c.realizados}/${c.total}`} noAlcPct={pct(c.no_alc ?? 0, c.total)} noAlcN={c.no_alc} />
+        <Tank icon="💧" label="Litros" pct={pctLit} color={semaforo(pctLit, t)} sub={`${miles(c.litros)} / ${miles(c.prom)} L`} />
+        <Tank icon="🏪" label="Locales" pct={pctLoc} color={semaforo(pctLoc, t)} sub={`${c.realizados}/${c.total}`} noAlcPct={pct(c.no_alc ?? 0, c.total)} noAlcN={c.no_alc} />
         {totalAlta > 0 && (
           <Tank icon="⭐" label="Alta" pct={pct(c.realizados_alta ?? 0, totalAlta)} color={semaforo(pct(c.realizados_alta ?? 0, totalAlta), t)} sub={`${c.realizados_alta ?? 0}/${totalAlta}`} noAlcPct={pct(c.no_alc_alta ?? 0, totalAlta)} noAlcN={c.no_alc_alta} />
         )}

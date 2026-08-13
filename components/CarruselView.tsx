@@ -10,11 +10,13 @@ import TimelineRutas from "./TimelineRutas";
 import ControlesReproduccion from "./ControlesReproduccion";
 import { useReproduccion } from "./useReproduccion";
 import Tank from "./Tank";
+import AvisoDesbalance from "./AvisoDesbalance";
 import { useTheme } from "./ThemeProvider";
 import { useCentroColores, estiloRuta } from "./CentroColores";
 import { breakdownDonutOption } from "@/lib/charts";
 import { miles } from "@/lib/format";
-import { estadoColor, prioridadColor, productColor } from "@/lib/theme";
+import { avisoDeCarrusel } from "@/lib/cards";
+import { estadoColor, prioridadColor, productColor, semaforo, semaforoOnDark } from "@/lib/theme";
 import { tieneCoords, type PuntoMapa } from "@/lib/mapa";
 import { aMinutos, filasTiempo, ventanaDe, type FilaTiempo, type RutaTiempo, type Ventana } from "@/lib/tiempo";
 import type { CarruselChofer, DetalleLocal, Zona } from "@/lib/types";
@@ -88,6 +90,10 @@ function armarGlobal(carrusel: CarruselChofer[], zona: Zona | undefined): Carrus
 
 const NO_ALC = "no alcanzamos a pasar";
 const INTERVALO_MS = 10_000;
+// Mínimo de locales para que valga partir la ruta en "mayor" y "menor aporte".
+// Con menos de 5+5 las dos listas comparten filas y el mismo local aparece a la
+// vez como el que más y el que menos aporta; ahí conviene una sola lista ordenada.
+const MIN_TOPS = 10;
 
 // Las tres tablas de magnitud del carrusel comparten forma, así que lo que las
 // separa es el color. Antes las tres iban en el mismo coral y de reojo se leían
@@ -268,17 +274,21 @@ function TimelineChofer({ rd, titulo, cursor, onSaltar }: {
 
   if (!rd.hayHoras) return null;
 
+  // El título va DENTRO de la card (como el del mapa), no flotando encima de ella.
+  const encabezado = (
+    <div className="section-title" style={{ margin: "0 0 10px" }}>
+      ⏱️ {titulo}
+      <span style={{ color: "var(--muted)", fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>
+        {" · "}hora en que se registró cada visita
+        {cursor !== null && " · click para saltar a esa hora"}
+      </span>
+    </div>
+  );
+
   return (
     <div className="carrusel-tl">
-      <div className="section-title" style={{ margin: "0 0 10px" }}>
-        ⏱️ {titulo}
-        <span style={{ color: "var(--muted)", fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>
-          {" · "}hora en que se registró cada visita
-          {cursor !== null && " · click para saltar a esa hora"}
-        </span>
-      </div>
       <TimelineRutas filas={filas} ventana={rd.ventana} colorCentro={colorDe} sinEtiqueta
-        cursor={cursor} onSaltar={onSaltar} />
+        cursor={cursor} onSaltar={onSaltar} encabezado={encabezado} />
     </div>
   );
 }
@@ -348,17 +358,22 @@ export default function CarruselView({ carrusel, global, initialChofer }: {
 }) {
   const { tokens: t } = useTheme();
   const { centroDe, colorDe } = useCentroColores();
-  // Las pestañas son Global + un chofer cada una. Global va primero y es el punto
-  // de entrada por defecto: la pregunta "cómo va el día" antecede a "cómo va Juan".
+  // Las pestañas son un chofer cada una + Global al final: la lista se lee como la
+  // nómina de choferes y la consolidación la cierra, como el total de una tabla.
+  // El carrusel entra por el primer chofer, no por Global — la vista arranca donde
+  // arranca la lista.
   const tarjetaGlobal = useMemo(() => armarGlobal(carrusel, global), [carrusel, global]);
   const slides = useMemo(
-    () => (tarjetaGlobal ? [tarjetaGlobal, ...carrusel] : carrusel),
+    () => (tarjetaGlobal ? [...carrusel, tarjetaGlobal] : carrusel),
     [tarjetaGlobal, carrusel],
   );
   const choferes = useMemo(() => slides.map((c) => c.chofer), [slides]);
   const startIdx = Math.max(0, initialChofer ? choferes.indexOf(initialChofer) : 0);
   const [idx, setIdx] = useState(startIdx);
   const [auto, setAuto] = useState(false);
+  // Lista de choferes plegable: en un monitor con 25 rutas las pills se comen dos
+  // o tres líneas de alto que el hero y el mapa aprovechan mejor.
+  const [verPills, setVerPills] = useState(true);
   // Orden y filtros por columna del detalle (client-side; el detalle ya viene en
   // el snapshot). sortCol="" = orden natural del publisher (Alta + litros desc).
   const [sortCol, setSortCol] = useState("");
@@ -384,6 +399,7 @@ export default function CarruselView({ carrusel, global, initialChofer }: {
   const locOrden = (c.locales ?? []).slice().sort((a, b) => b.Litros - a.Litros); // desc
   const masLitros = locOrden.slice(0, 5);
   const menosLitros = locOrden.slice(-5).reverse();   // el de menos litros, primero
+  const listaUnica = locOrden.length < MIN_TOPS;      // ruta corta: una sola lista
 
   // Detalle: columnas (con su tipo de filtro), filtrado y orden por columna.
   const detalle = c.detalle ?? [];
@@ -443,34 +459,65 @@ export default function CarruselView({ carrusel, global, initialChofer }: {
         <FullscreenToggle />
       </div>
 
-      <div className="pills">
-        {slides.map((ch, i) => (
-          <button key={ch.chofer}
-            className={`chip-btn${i === idx ? " active" : ""}${ch.chofer === GLOBAL ? " chip-btn-global" : ""}`}
-            onClick={() => setIdx(i)}>
-            {ch.chofer === GLOBAL ? "🌐 " : ch.cerrado ? "🔒 " : ""}{ch.chofer}
-          </button>
-        ))}
+      <div className="pills-head">
+        <button className="pills-toggle" onClick={() => setVerPills((v) => !v)} aria-expanded={verPills}>
+          <span className="pills-caret">{verPills ? "▾" : "▸"}</span>
+          Choferes <span className="tnum">{miles(carrusel.length)}</span>
+        </button>
+        {!verPills && <span className="pills-actual">{esGlobal ? "🌐 " : ""}{c.chofer}</span>}
       </div>
+
+      {/* El fondo de cada pill es su avance de litros sobre lo esperado (el mismo
+          % del balde 💧): la lista deja de ser solo un selector y se lee como el
+          ranking del día sin tener que entrar chofer por chofer. */}
+      {verPills && (
+        <div className="pills pills-choferes">
+          {slides.map((ch, i) => {
+            const p = Math.max(0, Math.min(100, ch.pct_lit ?? 0));
+            const col = semaforo(ch.pct_lit ?? 0, t);
+            return (
+              <button key={ch.chofer}
+                className={`chip-btn${i === idx ? " active" : ""}${ch.chofer === GLOBAL ? " chip-btn-global" : ""}`}
+                onClick={() => setIdx(i)}
+                title={`${ch.chofer} · ${ch.sub_lit ?? "sin litros"} (${ch.pct_lit ?? 0}% de lo esperado)`}
+                style={{ "--pct": `${p}%`, "--pct-col": col } as React.CSSProperties}>
+                <span className="chip-fill" />
+                {/* El mismo triángulo de las cards de chofer: quién necesita atención
+                    se ve en la lista, sin entrar pestaña por pestaña. */}
+                <AvisoDesbalance {...avisoDeCarrusel(ch)} size={13} />
+                <span className="chip-txt">{ch.chofer === GLOBAL ? "🌐 " : ch.cerrado ? "🔒 " : ""}{ch.chofer}</span>
+                <span className="chip-pct tnum">{ch.pct_lit ?? 0}%</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <div className="hero">
         <div>
           <div className="hero-eyebrow">{esGlobal ? `Toda la flota · ${miles(carrusel.length)} rutas` : "Chofer"}</div>
-          <div className="hero-name">{esGlobal ? "🌐 " : c.cerrado ? "🔒 " : ""}{c.chofer}</div>
+          <div className="hero-name">
+            {/* Sobre el degradado oscuro el triángulo va en su versión clara. */}
+            <AvisoDesbalance {...avisoDeCarrusel(c)} size={26} onDark />
+            {esGlobal ? "🌐 " : c.cerrado ? "🔒 " : ""}{c.chofer}
+          </div>
           {c.ruta && (() => {
             const centro = centroDe(c.tripulacion);
             return (
-              <div className="hero-route" style={estiloRuta(colorDe(centro))} title={centro ?? c.tripulacion ?? undefined}>
+              <div className="hero-route" style={estiloRuta(colorDe(centro), true)} title={centro ?? c.tripulacion ?? undefined}>
                 🗺️ {c.ruta}
               </div>
             );
           })()}
         </div>
         <div className="hero-metrics">
-          <Tank icon="💧" label="Litros" pct={c.pct_lit} color="#8fe08f" sub={c.sub_lit} onDark inlineSub />
-          <Tank icon="🏪" label="Locales" pct={c.pct_loc} color="#8fe08f" sub={c.sub_loc} noAlcPct={c.no_alc_pct_loc ?? 0} noAlcN={c.no_alc_loc} onDark inlineSub />
-          {c.tiene_alta && <Tank icon="⭐" label="Alta" pct={c.pct_alta} color="#ffe08a" sub={c.sub_alta} noAlcPct={c.no_alc_pct_alta ?? 0} noAlcN={c.no_alc_alta} onDark inlineSub />}
-          {c.emerg_total > 0 && <Tank icon="🚨" label="Emergencias" pct={c.pct_emerg} color="#ff9e9e" sub={c.sub_emerg} onDark inlineSub />}
+          {/* Cada balde toma el color de su propio %, igual que en las tarjetas de
+              chofer: antes iban con un color fijo por métrica y un 30% se veía igual
+              de verde que un 95%. Tonos claros porque el hero es oscuro. */}
+          <Tank icon="💧" label="Litros" pct={c.pct_lit} color={semaforoOnDark(c.pct_lit)} sub={c.sub_lit} onDark inlineSub />
+          <Tank icon="🏪" label="Locales" pct={c.pct_loc} color={semaforoOnDark(c.pct_loc)} sub={c.sub_loc} noAlcPct={c.no_alc_pct_loc ?? 0} noAlcN={c.no_alc_loc} onDark inlineSub />
+          {c.tiene_alta && <Tank icon="⭐" label="Alta" pct={c.pct_alta} color={semaforoOnDark(c.pct_alta)} sub={c.sub_alta} noAlcPct={c.no_alc_pct_alta ?? 0} noAlcN={c.no_alc_alta} onDark inlineSub />}
+          {c.emerg_total > 0 && <Tank icon="🚨" label="Emergencias" pct={c.pct_emerg} color={semaforoOnDark(c.pct_emerg)} sub={c.sub_emerg} onDark inlineSub />}
         </div>
       </div>
 
@@ -490,19 +537,31 @@ export default function CarruselView({ carrusel, global, initialChofer }: {
         </div>
 
         <div className="carrusel-lists">
+          {/* Rutas cortas (menos de 10 locales): una sola lista con todos, de mayor
+              a menor. Partirla en dos tops repetiría los mismos locales en las dos
+              cards y dejaría al mismo local como el que más y el que menos aporta. */}
           <div className="lists-col">
-            <div className="card card-pad">
-              <div className="section-title" style={{ margin: "0 0 10px" }}>🏆 Mayor aporte <span className="sec-sub">— los 5 locales con más litros</span></div>
-              {locOrden.length === 0 ? <p className="muted">Sin datos</p>
-                : <BarTable cols={[{ key: "Local", label: "Local" }, { key: "Litros", label: "Litros", num: true }]}
-                    rows={masLitros} valueKey="Litros" colorDe={escalaAporte(t.seq)} />}
-            </div>
-            <div className="card card-pad">
-              <div className="section-title" style={{ margin: "0 0 10px" }}>🔻 Menor aporte <span className="sec-sub">— los 5 locales con menos litros</span></div>
-              {locOrden.length === 0 ? <p className="muted">Sin datos</p>
-                : <BarTable cols={[{ key: "Local", label: "Local" }, { key: "Litros", label: "Litros", num: true }]}
-                    rows={menosLitros} valueKey="Litros" colorDe={escalaFlojo(menosLitros.length, t.critical, t.warning)} />}
-            </div>
+            {listaUnica ? (
+              <div className="card card-pad">
+                <div className="section-title" style={{ margin: "0 0 10px" }}>🏪 Locales</div>
+                {locOrden.length === 0 ? <p className="muted">Sin datos</p>
+                  : <BarTable cols={[{ key: "Local", label: "Local" }, { key: "Litros", label: "Litros", num: true }]}
+                      rows={locOrden} valueKey="Litros" colorDe={escalaAporte(t.seq)} />}
+              </div>
+            ) : (
+              <>
+                <div className="card card-pad">
+                  <div className="section-title" style={{ margin: "0 0 10px" }}>🏆 Mayor aporte <span className="sec-sub">— los 5 locales con más litros</span></div>
+                  <BarTable cols={[{ key: "Local", label: "Local" }, { key: "Litros", label: "Litros", num: true }]}
+                    rows={masLitros} valueKey="Litros" colorDe={escalaAporte(t.seq)} />
+                </div>
+                <div className="card card-pad">
+                  <div className="section-title" style={{ margin: "0 0 10px" }}>🔻 Menor aporte <span className="sec-sub">— los 5 locales con menos litros</span></div>
+                  <BarTable cols={[{ key: "Local", label: "Local" }, { key: "Litros", label: "Litros", num: true }]}
+                    rows={menosLitros} valueKey="Litros" colorDe={escalaFlojo(menosLitros.length, t.critical, t.warning)} />
+                </div>
+              </>
+            )}
           </div>
           {/* Columna del mapa: los dos rankings quedan apilados a la izquierda y la
               ruta se ve en paralelo, sin tener que bajar hasta el pie de la vista.
@@ -518,15 +577,15 @@ export default function CarruselView({ carrusel, global, initialChofer }: {
                 </span>
               </ControlesReproduccion>
             )}
-          </div>
 
-          {/* La línea de tiempo cierra la columna derecha, a lo ancho de los
-              rankings más el mapa: arranca alineada con las tablas y termina donde
-              termina el mapa. Va acá y no fuera del grid para que el eje horario
-              quede en el mismo bloque visual que la ruta que describe. */}
-          <TimelineChofer rd={rd} titulo={esGlobal ? "Línea de tiempo del día" : "Línea de tiempo de la ruta"}
-            cursor={repro && rd.hayHoras ? rep.minuto : null}
-            onSaltar={repro && rd.hayHoras ? rep.irA : undefined} />
+            {/* La línea de tiempo cierra la columna del mapa, justo debajo y a su
+                mismo ancho: son las dos lecturas de la misma ruta —dónde y cuándo—,
+                y una arriba de la otra el eje horario se lee contra el recorrido en
+                vez de contra los rankings de al lado. */}
+            <TimelineChofer rd={rd} titulo={esGlobal ? "Línea de tiempo del día" : "Línea de tiempo de la ruta"}
+              cursor={repro && rd.hayHoras ? rep.minuto : null}
+              onSaltar={repro && rd.hayHoras ? rep.irA : undefined} />
+          </div>
         </div>
       </div>
 

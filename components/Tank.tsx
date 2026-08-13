@@ -52,7 +52,9 @@ export default function Tank({
 }) {
   const p = Math.max(0, Math.min(100, pct));
   const na = Math.max(0, Math.min(noAlcPct, 100 - p)); // rojo apilado sobre el fill
-  const fill = `color-mix(in srgb, ${color} ${onDark ? 34 : 22}%, transparent)`;
+  // Sobre el hero oscuro el relleno va bastante más sólido: a 34% un pastel sobre
+  // el degradado verde-petróleo casi no se despegaba del fondo del balde.
+  const fill = `color-mix(in srgb, ${color} ${onDark ? 52 : 22}%, transparent)`;
   return (
     <div className={`tank has-tip${onDark ? " on-dark" : ""}`} data-tip={buildTip(label, pct, sub, na, noAlcN)}>
       <div className="tank-body" style={{ borderColor: color }}>

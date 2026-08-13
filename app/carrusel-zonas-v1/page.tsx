@@ -1,17 +1,13 @@
 "use client";
-// Carrusel Zonas: cicla Global → Santiago → Regiones. Regiones no va como una lista
-// que se desplaza sola sino partido en Norte / Sur (ver RegionesMitades), que es la
-// versión que reemplazó a la anterior — esa quedó en /carrusel-zonas-v1, fuera del
-// menú, por si hay que volver a mirarla.
+// Carrusel Zonas v1 (versión vieja, FUERA del menú): cicla Global → Santiago →
+// Regiones, con Regiones como feed auto-desplazable. La reemplazó la versión con
+// Regiones partido en Norte / Sur, que hoy vive en /carrusel-zonas.
 //
-// Cada mitad de Regiones dura lo mismo que Global o Santiago, así que Regiones se
-// queda el doble: una mitad por turno y recién ahí avanza el ciclo. Los dos relojes
-// arrancan juntos —el componente se monta al entrar a la zona— y por eso el cambio
-// de zona cae justo cuando se terminó de mostrar la segunda mitad.
+// Se conserva accesible por URL para poder volver a mirarla si la partición no
+// funciona en pantalla; no se enlaza desde ningún lado.
 import { useEffect, useState } from "react";
 import ZoneView from "@/components/ZoneView";
-import RegionesMitades from "@/components/RegionesMitades";
-import { MITADES } from "@/lib/mitades";
+import { duracionScrollMs } from "@/components/AutoScrollCards";
 import FullscreenToggle from "@/components/FullscreenToggle";
 import { useSnap } from "@/components/SnapshotContext";
 import type { ZonaNombre } from "@/lib/types";
@@ -20,18 +16,22 @@ const ZONAS: ZonaNombre[] = ["Global", "Santiago", "Regiones"];
 const ICONO: Record<ZonaNombre, string> = { Global: "🌐", Santiago: "🏙️", Regiones: "🗺️" };
 const INTERVALO_MS = 20_000;
 
-export default function CarruselZonasPage() {
+export default function CarruselZonasV1Page() {
   const { snap } = useSnap();
   const [idx, setIdx] = useState(0);
   const [auto, setAuto] = useState(true);
   const zona = ZONAS[idx];
+  const nReg = snap?.zonas.Regiones.cards.length ?? 0;
 
+  // Regiones se muestra como feed auto-desplazable: se queda el tiempo de una
+  // pasada completa (para verlos a todos) antes de avanzar; el resto, 20 s fijos.
+  // Depende solo de nReg (no del objeto snap) para que un refresh no reinicie el ciclo.
   useEffect(() => {
     if (!auto) return;
-    const ms = zona === "Regiones" ? INTERVALO_MS * MITADES.length : INTERVALO_MS;
+    const ms = zona === "Regiones" ? duracionScrollMs(nReg) : INTERVALO_MS;
     const id = setTimeout(() => setIdx((i) => (i + 1) % ZONAS.length), ms);
     return () => clearTimeout(id);
-  }, [auto, idx, zona]);
+  }, [auto, idx, zona, nReg]);
 
   if (!snap) return <p className="muted">Cargando…</p>;
 
@@ -48,9 +48,7 @@ export default function CarruselZonasPage() {
         <label className="sw"><input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> Auto</label>
         <FullscreenToggle />
       </div>
-      {zona === "Regiones"
-        ? <RegionesMitades zona={snap.zonas.Regiones} mitadMs={INTERVALO_MS} pausado={!auto} />
-        : <ZoneView zona={snap.zonas[zona]} esGlobal={zona === "Global"} />}
+      <ZoneView zona={snap.zonas[zona]} esGlobal={zona === "Global"} scrollCards={zona === "Regiones"} />
     </>
   );
 }

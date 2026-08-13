@@ -157,6 +157,15 @@ export interface Parametros {
 
 export type ZonaNombre = "Global" | "Santiago" | "Regiones";
 
+// Fila del mapeo prefijo → centro (tabla Supabase monitor_zona_map). El tipo vive
+// completo en CentroColores, que es quien la lee y la escribe; acá solo lo que
+// necesitan las funciones puras que reparten choferes por tramo del país.
+export interface ZonaMapRowLike {
+  prefijo: string;
+  centro: string;
+  orden: number;
+}
+
 export interface Snapshot {
   generated_at: string;
   hora_ciclo: string | null;

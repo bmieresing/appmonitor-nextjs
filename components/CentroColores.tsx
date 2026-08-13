@@ -27,15 +27,40 @@ export interface ZonaMapRow {
   orden: number;     // prioridad de match (menor = se evalúa primero)
 }
 
+/** Luminancia relativa (WCAG) de un color hex. Los colores de centro los elige el
+ *  operador en Parámetros con un `input[type=color]`, así que siempre son hex. */
+function luminancia(hex: string): number {
+  const h = hex.replace("#", "").trim();
+  const full = h.length === 3 ? h.split("").map((x) => x + x).join("") : h;
+  if (!/^[0-9a-fA-F]{6}$/.test(full)) return 0;   // color raro: se asume oscuro
+  const canal = (i: number) => {
+    const v = parseInt(full.slice(i * 2, i * 2 + 2), 16) / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * canal(0) + 0.7152 * canal(1) + 0.0722 * canal(2);
+}
+
+/** Tinta legible sobre un fondo de ese color: el centro puede ser azul marino o
+ *  amarillo y el texto tiene que leerse en los dos casos. */
+export function tintaSobre(color: string): string {
+  return luminancia(color) > 0.42 ? "#0b0b0b" : "#ffffff";
+}
+
 // Estilo del recuadro tenue de la ruta a partir del color del centro. `undefined`
 // (centro sin color) → sin recuadro: se conserva el estilo plano de la ruta.
-export function estiloRuta(color: string | undefined | null): React.CSSProperties | undefined {
+//
+// `onDark` es para el hero del carrusel, que es un degradado oscuro: ahí el
+// recuadro tenue con el texto del color del centro casi no se leía (un azul de
+// centro sobre verde-petróleo es color oscuro sobre color oscuro). Sobre fondo
+// oscuro el chip se pinta sólido con el color del centro y el texto pasa a la
+// tinta que contrasta con él.
+export function estiloRuta(color: string | undefined | null, onDark = false): React.CSSProperties | undefined {
   if (!color) return undefined;
   return {
     display: "inline-block",           // envuelve solo el texto (el hero-route es block)
-    border: `1.5px solid ${color}`,
-    background: `color-mix(in srgb, ${color} 28%, transparent)`,
-    color,
+    border: `1.5px solid ${onDark ? `color-mix(in srgb, ${color} 70%, #fff)` : color}`,
+    background: onDark ? color : `color-mix(in srgb, ${color} 28%, transparent)`,
+    color: onDark ? tintaSobre(color) : color,
     padding: "2px 9px",
     borderRadius: 999,
     opacity: 1,                        // color a full (el hero-route trae opacity .8)

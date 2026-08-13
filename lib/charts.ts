@@ -2,7 +2,7 @@
 // Devuelven objetos de opción; el render lo hace <ReactECharts>.
 // El tipo de retorno es un objeto abierto: el tipo estricto de ECharts choca
 // con props literales ("bar"/"pie") sin aportar seguridad real acá.
-import { Tokens, semaforo, semaforoComp } from "./theme";
+import { Tokens, semaforo } from "./theme";
 
 type EOption = Record<string, unknown>;
 
@@ -71,4 +71,4 @@ export function breakdownDonutOption(
   };
 }
 
-export { semaforo, semaforoComp, nf };
+export { semaforo, nf };

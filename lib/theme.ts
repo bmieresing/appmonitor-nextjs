@@ -92,18 +92,30 @@ export function productColor(nombre: string): string {
   return PRODUCT_COLORS[nombre] ?? PRODUCT_COLOR_DEFAULT;
 }
 
-// Semáforo general (locales, litros relativos, prioridad alta).
+// EL semáforo del dashboard. Uno solo para todo lo que sea "% de la meta": litros
+// sobre lo esperado, locales realizados, prioridad Alta, emergencias, avance de una
+// ruta. Verde desde 80, ámbar desde 50, rojo abajo.
+//
+// Antes había una segunda escala (100 / 70) solo para litros, y el mismo "voy por la
+// mitad" salía rojo en un balde y ámbar en el de al lado. Dos varas para la misma
+// pregunta es lo que hacía ilegible la fila de baldes: si hace falta cambiar los
+// cortes, se cambian acá y cambian en todas las vistas a la vez.
 export function semaforo(pct: number, t: Tokens): string {
   if (pct >= 80) return t.good;
   if (pct >= 50) return t.warning;
   return t.critical;
 }
 
-// Semáforo de la comparativa litros-vs-esperado (umbral 100 / 70).
-export function semaforoComp(pct: number, t: Tokens): string {
-  if (pct >= 100) return t.good;
-  if (pct >= 70) return t.warning;
-  return t.critical;
+// El mismo semáforo sobre fondo oscuro (el hero del carrusel, que es un degradado
+// verde-petróleo en los dos temas): mismos cortes, tonos claros. El verde de marca
+// (#0ca30c) sobre ese fondo queda casi negro y el rojo pierde toda la alarma, así
+// que los tokens del tema no sirven acá.
+const SEMAFORO_ON_DARK = { good: "#8fe08f", warning: "#ffd166", critical: "#ff9e9e" };
+
+export function semaforoOnDark(pct: number): string {
+  if (pct >= 80) return SEMAFORO_ON_DARK.good;
+  if (pct >= 50) return SEMAFORO_ON_DARK.warning;
+  return SEMAFORO_ON_DARK.critical;
 }
 
 // Color del estado de un local: verde realizado · rojo el no alcanzado · rojo

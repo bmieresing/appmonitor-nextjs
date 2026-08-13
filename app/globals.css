@@ -160,6 +160,9 @@ body.kiosk .toolbar { margin-bottom: 10px; }
 /* Cada copia de la grilla lleva abajo el mismo gap que la grilla (14px), para que
    la costura entre las dos copias no se note al hacer el loop -50%. */
 .vscroll-copy { margin-bottom: 14px; }
+/* Marca de reinicio al tope de cada copia: dice dónde vuelve a empezar la lista.
+   Va en las DOS copias —tienen que medir igual o el loop -50% deja de calzar. */
+.vscroll-sep { height: 2px; border-radius: 999px; margin-bottom: 14px; background: color-mix(in srgb, var(--accent) 45%, transparent); }
 @keyframes vscroll { from { transform: translateY(0); } to { transform: translateY(-50%); } }
 @media (prefers-reduced-motion: reduce) { .vscroll-track { animation: none; } }
 
@@ -173,6 +176,20 @@ body.kiosk .toolbar { margin-bottom: 10px; }
 /* Aclaración dentro de un título de sección: en minúsculas y más liviana, para que
    el título se lea de un golpe y el detalle no compita con él. */
 .sec-sub { font-weight: 500; text-transform: none; letter-spacing: 0; opacity: .72; }
+/* Mitades de Regiones (carrusel v2): las cards de la mitad viven dentro de una card
+   grande teñida con su color —Norte cálido, Sur frío—, y arriba al medio el switch
+   que dice cuál se está viendo. La transición larga hace que el cambio automático se
+   lea como un cambio de temperatura y no como un parpadeo. */
+.mitad-card { border-width: 2px; transition: border-color .45s ease, background .45s ease; }
+.mitad-sw { display: flex; justify-content: center; gap: 8px; margin-bottom: 16px; }
+.mitad-sw-btn {
+  display: inline-flex; align-items: center; gap: 9px; padding: 8px 20px;
+  border: 1.5px solid var(--border); border-radius: 999px; background: var(--surface);
+  font-family: inherit; font-size: 15px; font-weight: 800; letter-spacing: .4px;
+  cursor: pointer; transition: background .35s ease, color .35s ease, border-color .35s ease, transform .2s ease;
+}
+.mitad-sw-btn .n { font-size: 12.5px; font-weight: 700; opacity: .78; }
+.mitad-sw-btn.on { transform: scale(1.05); box-shadow: 0 3px 12px rgba(0, 0, 0, .18); }
 
 /* ── Fila KPI ───────────────────────────────────────────────── */
 .kpi-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; }
@@ -272,6 +289,10 @@ body.kiosk .toolbar { margin-bottom: 10px; }
 .entity-name { flex: 1 1 auto; min-width: 0; font-size: 14px; font-weight: 700; letter-spacing: -0.2px; overflow-wrap: anywhere; }
 .entity-name a { text-decoration: none; }
 .entity-route { flex: 0 0 auto; font-size: 11px; color: var(--text-2); font-weight: 500; white-space: nowrap; margin-top: 2px; }
+/* Triángulo de aviso al inicio del encabezado (ver AvisoDesbalance): corre el nombre
+   un poco a la derecha y no toca ningún otro color de la card. El color lo pone el
+   componente, que es quien sabe el nivel y si va sobre fondo oscuro. */
+.desb-ico { flex: 0 0 auto; margin-top: 1px; }
 
 /* Cards por chofer en Recolecciones: total + barra + detalle por producto.
    Borde superior de color = semáforo relativo del chofer (como el v1). */
@@ -319,12 +340,24 @@ body.kiosk .toolbar { margin-bottom: 10px; }
   background: var(--surface); color: var(--text);
   border: 1px solid var(--border); border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, .22);
-  padding: 8px 11px; font-size: 12.5px; font-weight: 700; line-height: 1.35;
-  max-width: 230px; width: max-content; text-align: left; letter-spacing: -0.1px;
+  padding: 9px 12px; font-size: 12.5px; font-weight: 600; line-height: 1.45;
+  max-width: 300px; width: max-content; text-align: left; letter-spacing: 0;
   white-space: pre-line; /* respeta los \n → un dato por línea */
   opacity: 0; pointer-events: none; transition: opacity .12s ease, transform .12s ease;
   z-index: 50;
 }
+/* Variante hacia abajo: para lo que vive pegado al borde superior de un contenedor
+   que recorta —los encabezados de tabla dentro de .tbl-wrap—, donde el globo de
+   arriba quedaría cortado. */
+.has-tip.tip-abajo::after {
+  bottom: auto; top: calc(100% + 8px); transform: translateX(-50%) translateY(-3px);
+}
+.has-tip.tip-abajo::before {
+  bottom: auto; top: calc(100% + 3px); transform: translateX(-50%) translateY(-3px);
+  border-top-color: transparent; border-bottom-color: var(--surface);
+}
+.has-tip.tip-abajo:hover::after, .has-tip.tip-abajo:hover::before { transform: translateX(-50%) translateY(0); }
+
 /* Flechita apuntando al tanque */
 .has-tip::before {
   content: ""; position: absolute; bottom: calc(100% + 3px); left: 50%; transform: translateX(-50%) translateY(3px);
@@ -357,12 +390,82 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
 .stat .val { font-size: 27px; font-weight: 800; letter-spacing: -0.6px; margin-top: 4px; }
 .stat .val small { font-size: 15px; color: var(--muted); font-weight: 600; }
 
+/* ── Estadísticas ───────────────────────────────────────────────
+   Una pestaña con varias secciones independientes, cada una con su encabezado y sus
+   propios filtros a la derecha. La línea de acento del borde superior separa una
+   sección de la siguiente sin necesidad de encajarlas en cards anidadas. */
+.est-page { display: flex; flex-direction: column; gap: 26px; }
+.est-seccion { border-top: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); padding-top: 14px; }
+.est-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.est-tit { font-size: 17px; font-weight: 800; letter-spacing: -0.3px; margin: 0; }
+.est-bajada { font-size: 12.5px; color: var(--muted); margin: 3px 0 0; max-width: 72ch; }
+.est-filtros { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+/* El filtro de centro trae margen inferior propio (lo usa suelto en Regiones); acá va
+   dentro de la barra y lo alinea el flex. */
+.est-filtros .fc { margin-bottom: 0; }
+.est-busca { width: 220px; }
+.est-filtro-sel { display: inline-flex; align-items: center; gap: 8px; }
+.est-filtro-sel .col-filtro { width: auto; }
+/* Estado actual en la fila: los mismos baldes de las cards, en chico. Se achica el
+   medidor y la etiqueta, y el sub (los "28/131") se cae porque ya está en el globo
+   —en una fila de tabla no hay lugar para tres cifras más—. */
+.est-tanques { display: flex; gap: 7px; min-width: 145px; }
+.est-tanques .tank-body { height: 26px; border-width: 1px; border-radius: 4px 4px 6px 6px; }
+.est-tanques .tank-pct { font-size: 10.5px; text-shadow: none; }
+.est-tanques .tank-cap { font-size: 9.5px; font-weight: 600; margin-top: 3px; color: var(--muted); }
+.est-tanques .tank-sub { display: none; }
+.est-tabla td { white-space: nowrap; }
+/* Indicador de ayuda del encabezado: un circulito dibujado con CSS y no el carácter
+   ⓘ, que cada sistema renderiza a su manera (y en Windows sale como emoji). */
+.est-info {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; margin-left: 6px; vertical-align: 1px;
+  border: 1px solid var(--border); border-radius: 50%;
+  font-size: 9.5px; font-weight: 800; font-style: italic; line-height: 1;
+  color: var(--muted); background: var(--surface); cursor: help;
+  text-transform: none; letter-spacing: 0; transition: color .12s, border-color .12s;
+}
+.est-info:hover { color: var(--accent); border-color: var(--accent); }
+
 /* ── Carrusel ───────────────────────────────────────────────── */
 .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
 .pills { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 16px; }
 .chip-btn { border: 1px solid var(--border); background: var(--surface); color: var(--text-2); border-radius: 999px; padding: 5px 13px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .12s; }
 .chip-btn:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
 .chip-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* Cabecera de la lista de choferes: la pliega para recuperar el alto que se comen
+   las pills cuando hay muchas rutas. Plegada muestra a quién se está viendo. */
+.pills-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.pills-toggle {
+  display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
+  color: var(--text-2); font-family: inherit; font-size: 11.5px; font-weight: 700;
+  letter-spacing: .3px; text-transform: uppercase; cursor: pointer; transition: border-color .12s;
+}
+.pills-toggle:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.pills-toggle .tnum { color: var(--muted); font-weight: 800; }
+.pills-caret { font-size: 10px; color: var(--accent); }
+.pills-actual { font-size: 12.5px; font-weight: 700; color: var(--text); }
+
+/* Pills de chofer: el ancho del relleno es su % de litros sobre lo esperado y el
+   color, el mismo semáforo del balde 💧. La seleccionada no se pinta entera de
+   acento (taparía su propio relleno): se marca con anillo y texto fuerte. */
+.pills-choferes .chip-btn { position: relative; overflow: hidden; display: inline-flex; align-items: baseline; gap: 7px; }
+.pills-choferes .chip-fill {
+  position: absolute; left: 0; top: 0; bottom: 0; width: var(--pct, 0%);
+  background: color-mix(in srgb, var(--pct-col, var(--accent)) 24%, transparent);
+  transition: width .55s cubic-bezier(.4, 0, .2, 1);
+}
+/* Sobre el relleno de litros, que es un absoluto detrás del contenido. */
+.pills-choferes .chip-txt, .pills-choferes .chip-pct, .pills-choferes .desb-ico { position: relative; }
+.pills-choferes .desb-ico { margin: 0 -2px 0 0; align-self: center; }
+.pills-choferes .chip-pct { font-size: 10.5px; font-weight: 800; color: var(--pct-col, var(--muted)); font-variant-numeric: tabular-nums; }
+.pills-choferes .chip-btn.active {
+  background: var(--surface); color: var(--text); border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 32%, transparent); font-weight: 800;
+}
+.pills-choferes .chip-btn.active .chip-fill { background: color-mix(in srgb, var(--pct-col, var(--accent)) 38%, transparent); }
 .sw { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--text-2); cursor: pointer; }
 
 .hero {
@@ -373,8 +476,12 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
 }
 [data-theme="dark"] .hero { background: linear-gradient(135deg, #0f3d1f 0%, #0b4956 100%); }
 .hero-eyebrow { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; opacity: .7; }
-.hero-name { font-size: 32px; font-weight: 800; line-height: 1.05; letter-spacing: -0.6px; }
-.hero-route { font-size: 12px; opacity: .8; margin-top: 6px; }
+.hero-name { display: flex; align-items: center; gap: 10px; font-size: 32px; font-weight: 800; line-height: 1.05; letter-spacing: -0.6px; }
+.hero-name .desb-ico { margin-top: 0; }
+/* Ruta bajo el nombre del chofer: es el dato con el que el operador identifica el
+   recorrido, así que va al cuerpo de texto y no en letra chica atenuada. Sin color
+   de centro cargado queda como texto claro sobre el hero (sin chip). */
+.hero-route { font-size: 14px; font-weight: 700; letter-spacing: .2px; opacity: .95; margin-top: 8px; }
 .hero-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(120px, 100%), 1fr)); gap: 12px; }
 .hero-metric .mv { font-size: 22px; font-weight: 800; }
 .hero-metric .ml { font-size: 11px; opacity: .8; }
@@ -390,7 +497,8 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
 /* Pestaña Global del carrusel: se separa del resto de las pills con un borde de
    acento, porque no es un chofer más sino la consolidación de todos. */
 .chip-btn-global { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); font-weight: 800; }
-.chip-btn-global.active { background: var(--accent); border-color: var(--accent); }
+/* Global cierra la lista, así que se separa del último chofer en vez de del primero. */
+.pills-choferes .chip-btn-global { margin-left: 8px; }
 
 /* Columna izquierda del carrusel: desglose de visitas + productos, apilados. Son
    las dos lecturas del mismo total de la ruta, y juntas le dan a la columna un alto
@@ -403,9 +511,10 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
 /* Los rankings son dos tablas de dos columnas: con ~300px ya se leen enteros. El
    resto va al mapa, que es lo único de la vista que mejora con cada píxel. */
 .lists-col-mapa { flex: 2 1 420px; min-width: min(360px, 100%); }
-/* La línea de tiempo cierra la columna derecha: fuerza fila propia (basis 100%) y
-   ocupa desde el borde izquierdo de los rankings hasta el final del mapa. */
-.carrusel-tl { flex: 1 1 100%; min-width: 0; }
+/* La línea de tiempo va dentro de la columna del mapa, debajo de él: el ancho lo
+   hereda de la columna (por eso solo necesita poder encogerse) y el eje horario
+   queda alineado con el recorrido que describe. */
+.carrusel-tl { min-width: 0; }
 
 /* Tabla de magnitud (aporte por local / productos): encabezados + barra fina en la
    columna de litros, relativa al máximo de la lista. El color lo decide cada tabla
@@ -579,24 +688,20 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
 .tl-gap { position: absolute; top: 50%; height: 3px; margin-top: -1.5px; border-radius: 999px; background: repeating-linear-gradient(90deg, var(--warning) 0 4px, transparent 4px 8px); cursor: help; }
 .tl-gap::before { content: ""; position: absolute; inset: -9px 0; }  /* área de hover cómoda */
 
-/* El punto es un contenedor de área fija que NUNCA se transforma: es el que lleva
-   el tooltip (`has-tip::after` es su hijo). La forma va en un `<i>` interior, que sí
-   puede escalar o recortarse sin arrastrar al texto — antes el rombo de prioridad
-   Alta rotaba el punto 45° y el hover lo escalaba, y el tooltip salía en diagonal y
-   deformado. El contenedor además da un área de hover cómoda. */
-.tl-pt { position: absolute; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px; cursor: help; }
-.tl-pt:hover { z-index: 4; }
+/* Punto de una visita: el relleno lleva el estado y la forma, la prioridad Alta
+   (rombo) y la emergencia (halo). Aparece dentro del recuadro de la visita, en el
+   panel de detalle y en el pie; el tamaño lo pone cada contexto. */
 .tl-pt-f {
-  position: absolute; inset: 4px; border-radius: 50%; border: 1.5px solid var(--surface);
+  display: inline-block; flex: 0 0 auto; width: 9px; height: 9px;
+  border-radius: 50%; border: 1.5px solid var(--surface);
   transition: transform .12s ease, opacity .2s ease;
 }
-.tl-pt:hover .tl-pt-f { transform: scale(1.5); }
 /* Prioridad y emergencia van como FORMA, no como segundo color: el relleno ya
    lleva el estado (mismo criterio que los pines del mapa). El rombo se recorta con
    clip-path en vez de rotarse, y el drop-shadow reemplaza al borde, que clip-path
    recortaría. */
 .tl-pt-f.alta {
-  inset: 2.5px; border: none;
+  border: none;
   clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
   filter: drop-shadow(0 0 1.5px var(--surface)) drop-shadow(0 0 1px var(--surface));
 }
@@ -604,11 +709,20 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
 /* Alta + emergencia: clip-path recorta el box-shadow, así que el halo va por filtro. */
 .tl-pt-f.alta.emerg { box-shadow: none; filter: drop-shadow(0 0 2.5px var(--critical)) drop-shadow(0 0 1px var(--surface)); }
 
-/* ── Grupo de visitas juntas ─────────────────────────────────────
-   Una tripulación registra varios locales seguidos (un mall, una galería) y esos
-   puntos caen encima unos de otros. El grupo los reemplaza por un botón con la
-   cuenta, que al abrirse despliega la tanda hacia arriba, una visita por línea. */
+/* ── Recuadro de visitas ─────────────────────────────────────────
+   Cada marca de la línea es un botón con la cantidad de visitas que representa: una
+   sola, o la tanda de locales seguidos (un mall, una galería) cuyos puntos caerían
+   encima unos de otros. Al abrirse despliega hacia arriba el detalle, una visita por
+   línea. Misma marca y mismo gesto en los dos casos: una visita es una tanda de una. */
 .tl-grupo { position: absolute; top: 50%; margin-top: -10px; transform: translateX(-50%); }
+/* Con el detalle desplegado, la marca va por encima de las vecinas: si no, el
+   recuadro de al lado (más tarde en el DOM) le pasa por arriba al panel. */
+.tl-grupo.abierto { z-index: 31; }
+/* Puente invisible sobre el aire que separa al panel de su recuadro: sin esto, ir
+   con el mouse del recuadro al panel sale del elemento y lo cierra a mitad de camino.
+   Va en el contenedor y no en el panel: adentro del panel (que recorta en el alto)
+   sobresalía por abajo y le disparaba la barra de scroll. */
+.tl-grupo.abierto::after { content: ""; position: absolute; bottom: 100%; left: -20px; right: -20px; height: 9px; }
 .tl-grupo-btn {
   display: flex; flex-direction: column; align-items: center; gap: 2px;
   padding: 2px 5px; border: 1px solid var(--border); border-radius: 7px;
@@ -621,26 +735,34 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
 .tl-grupo-n { font-size: 10.5px; font-weight: 800; }
 /* Mini-resumen: una rayita por visita con su color de estado, hasta seis. Deja ver
    qué pasó en la tanda sin abrirla. */
-.tl-grupo-barras { display: flex; gap: 1.5px; }
+.tl-grupo-barras { display: flex; align-items: center; justify-content: center; gap: 1.5px; height: 5px; }
 .tl-grupo-barras i { display: block; width: 2.5px; height: 5px; border-radius: 1px; }
 
 .tl-grupo-pop {
   position: absolute; bottom: calc(100% + 7px); left: 50%; transform: translateX(-50%);
-  min-width: 250px; max-width: 340px; max-height: 260px; overflow-y: auto;
+  /* Se ensancha y se alarga con el contenido: el nombre del local va entero —es el
+     dato con el que el operador lo reconoce, y cortarlo deja "SUPERM…" en media
+     lista— y la tanda se lee sin scroll. Los topes son solo la pantalla: más ancho
+     se sale de la ventana, más alto deja las primeras filas fuera de la vista. */
+  width: max-content; min-width: 250px; max-width: min(560px, 88vw); max-height: 80vh; overflow-y: auto;
   padding: 8px; border-radius: 11px; z-index: 30;
   background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-lg);
   cursor: default;
 }
 .tl-grupo-pop-tit { font-size: 11px; font-weight: 800; padding: 0 4px 6px; border-bottom: 1px solid var(--border); margin-bottom: 4px; white-space: nowrap; }
 .tl-grupo-pop-tit span { font-weight: 500; color: var(--muted); }
-.tl-grupo-item { display: grid; grid-template-columns: 38px 11px 1fr auto; align-items: center; gap: 7px; padding: 4px; border-radius: 6px; font-size: 12px; }
+.tl-grupo-item { display: grid; grid-template-columns: 38px 11px 1fr minmax(0, auto); align-items: center; gap: 7px; padding: 4px; border-radius: 6px; font-size: 12px; }
 .tl-grupo-item:hover { background: var(--surface-2); }
 .tl-grupo-hora { font-size: 10.5px; font-weight: 700; color: var(--muted); }
 /* El mismo punto de la línea, en tamaño fijo dentro de la lista. */
-.tl-grupo-item .tl-pt-f { position: static; inset: auto; width: 11px; height: 11px; }
+.tl-grupo-item .tl-pt-f { width: 11px; height: 11px; }
 .tl-grupo-item .tl-pt-f.alta { width: 12px; height: 12px; }
-.tl-grupo-local { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tl-grupo-est { font-size: 11px; font-weight: 700; white-space: nowrap; }
+/* Nombre entero: no se corta. Si ni siquiera entra en el ancho máximo del panel,
+   parte en dos líneas antes que perder texto. */
+.tl-grupo-local { white-space: normal; overflow-wrap: anywhere; line-height: 1.25; }
+/* Litros, o la razón del fallo cuando no hubo. Las razones son frases ("no
+   alcanzamos a pasar"), así que se acotan y el título del span lleva la completa. */
+.tl-grupo-est { font-size: 11px; font-weight: 700; white-space: nowrap; max-width: 132px; overflow: hidden; text-overflow: ellipsis; }
 
 .tl-kpis { display: flex; flex-direction: column; align-items: flex-end; }
 .tl-kpis b { font-size: 15px; line-height: 1.1; }
@@ -650,7 +772,7 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
 .tl-pie-item { display: flex; align-items: center; gap: 6px; }
 /* Las muestras del pie son la misma forma del punto, fuera del track: sin
    posicionamiento absoluto ni los márgenes que lo centran sobre su hora. */
-.tl-pie .tl-pt-f { position: static; inset: auto; width: 10px; height: 10px; flex: 0 0 auto; }
+.tl-pie .tl-pt-f { width: 10px; height: 10px; }
 .tl-pie .tl-pt-f.alta { width: 12px; height: 12px; margin: 0 1px; }
 .tl-grupo-muestra { display: inline-flex; align-items: center; justify-content: center; min-width: 15px; height: 13px; padding: 0 3px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); font-size: 9px; font-weight: 800; color: var(--text); }
 .tl-gap-muestra { width: 26px; height: 3px; border-radius: 999px; background: repeating-linear-gradient(90deg, var(--warning) 0 4px, transparent 4px 8px); }

@@ -4,7 +4,7 @@ import React, { useMemo } from "react";
 import ReactECharts from "./ReactECharts";
 import { useTheme } from "./ThemeProvider";
 import { kpiDonutOption, KpiSlice } from "@/lib/charts";
-import { productColor } from "@/lib/theme";
+import { productColor, semaforo } from "@/lib/theme";
 import { miles } from "@/lib/format";
 import type { Zona } from "@/lib/types";
 
@@ -63,6 +63,11 @@ export default function KpiRow({ zona }: { zona: Zona }) {
   const k = zona.kpis;
   const prodTotal = zona.productos.reduce((a, p) => a + p.litros, 0);
 
+  // El número del centro de cada anillo va con EL semáforo del dashboard (80 / 50),
+  // igual que los baldes: antes iba siempre en verde de marca y el color no decía
+  // nada del porcentaje. Los colores de los gajos no cambian: ahí el color es la
+  // categoría (realizado / no alcanzado / pendiente), no el nivel.
+  //
   // Los cinco anillos se arman de una sola vez y solo cambian si cambian los KPIs
   // o el tema. Antes eran literales inline en el JSX: array nuevo en cada render,
   // que le cambiaba la identidad al `slices` de cada Ring y reconstruía los cinco
@@ -73,7 +78,7 @@ export default function KpiRow({ zona }: { zona: Zona }) {
     const pendAlta = Math.max(k.total_alta - k.exitosos_alta - k.no_alc_alta, 0);
     return [
       {
-        emoji: "💧", pct: k.pct_lit, color: t.accent, label: "Litros vs Esperado",
+        emoji: "💧", pct: k.pct_lit, color: semaforo(k.pct_lit, t), label: "Litros vs Esperado",
         value: `${miles(k.litros)} / ${miles(k.esperado)} L`,
         slices: [
           { name: "Recolectado", value: g(k.pct_lit), display: `${miles(k.litros)} L`, color: t.accent },
@@ -81,7 +86,7 @@ export default function KpiRow({ zona }: { zona: Zona }) {
         ],
       },
       {
-        emoji: "🏪", pct: k.pct_loc, color: t.accent, label: "Locales Realizados",
+        emoji: "🏪", pct: k.pct_loc, color: semaforo(k.pct_loc, t), label: "Locales Realizados",
         value: `${miles(k.exitosos_loc)} / ${miles(k.total_loc)}`,
         slices: [
           { name: "Realizados", value: k.exitosos_loc, display: `${miles(k.exitosos_loc)} locales`, color: t.accent },
@@ -90,7 +95,7 @@ export default function KpiRow({ zona }: { zona: Zona }) {
         ],
       },
       {
-        emoji: "⭐", pct: k.pct_alta, color: t.accent, label: "Prioridad Alta",
+        emoji: "⭐", pct: k.pct_alta, color: semaforo(k.pct_alta, t), label: "Prioridad Alta",
         value: `${miles(k.exitosos_alta)} / ${miles(k.total_alta)}`,
         slices: [
           { name: "Realizados", value: k.exitosos_alta, display: `${miles(k.exitosos_alta)} locales`, color: t.accent },
@@ -99,7 +104,7 @@ export default function KpiRow({ zona }: { zona: Zona }) {
         ],
       },
       {
-        emoji: "✅", pct: k.pct_exit, color: t.good, label: "Recolecciones",
+        emoji: "✅", pct: k.pct_exit, color: semaforo(k.pct_exit, t), label: "Recolecciones",
         value: `${miles(k.exitosas)} / ${miles(k.fallidas)}`,
         slices: [
           { name: "Exitosas", value: k.exitosas, display: `${miles(k.exitosas)} visitas`, color: t.good },
@@ -108,7 +113,7 @@ export default function KpiRow({ zona }: { zona: Zona }) {
         ],
       },
       {
-        emoji: "🚦", pct: k.pct_cerradas, color: t.accent2, label: "Rutas Cerradas",
+        emoji: "🚦", pct: k.pct_cerradas, color: semaforo(k.pct_cerradas, t), label: "Rutas Cerradas",
         value: `${miles(k.cerradas)} / ${miles(k.n_rutas)}`,
         slices: [
           { name: "Cerradas", value: k.cerradas, display: `${miles(k.cerradas)} rutas`, color: t.accent2 },

@@ -18,8 +18,12 @@ const VISTAS: [string, string, string][] = [
   ["Regiones", "/regiones", "🗺️"],
   ["Mapa", "/mapa", "📍"],
   ["Recolecciones", "/recolecciones", "✅"],
-  ["Rendimiento", "/rendimiento", "📊"],
+  // Rendimiento dejó de ser pestaña propia: es una sección de Estadísticas. Su ruta
+  // sigue viva en /rendimiento, sin entrada acá.
+  ["Estadisticas", "/estadisticas", "📊"],
   ["Carrusel", "/carrusel", "🎠"],
+  // La versión anterior (Regiones como feed que se desplaza) sigue en
+  // /carrusel-zonas-v1, sin entrada en el menú.
   ["Carrusel Zonas", "/carrusel-zonas", "🔄"],
   ["Parametros", "/parametros", "⚙️"],
 ];

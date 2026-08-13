@@ -53,12 +53,17 @@ export default function AutoScrollCards({ cards, pausado = false }: { cards: Car
         className="vscroll-track"
         style={{ animationDuration: `${duracion}s`, animationPlayState: pausado ? "paused" : "running" }}
       >
-        <div className="card-grid vscroll-copy">
-          {cards.map((c) => <CardChofer key={c.chofer} c={c} />)}
-        </div>
-        <div className="card-grid vscroll-copy" aria-hidden="true">
-          {cards.map((c) => <CardChofer key={c.chofer} c={c} />)}
-        </div>
+        {/* Las dos copias arrancan con la misma marca de reinicio: el feed es un loop
+            continuo y sin ella no se distingue un chofer nuevo de uno que ya pasó —
+            que es la pregunta que se hace quien mira la pantalla un rato largo. */}
+        {[0, 1].map((copia) => (
+          <div className="vscroll-copy" key={copia} aria-hidden={copia === 1 || undefined}>
+            <div className="vscroll-sep" />
+            <div className="card-grid">
+              {cards.map((c) => <CardChofer key={c.chofer} c={c} />)}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
