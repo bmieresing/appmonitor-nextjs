@@ -116,6 +116,11 @@ export type DetalleLocal = {
   emergencia?: boolean;       // el local está marcado como emergencia
   estado: string;             // "Realizado" | "No alcanzado" | "Fallido" | "Pendiente"
   razon: string | null;       // nombre de la razón de fallo
+  // Aviso de que esta fila no calza con lo que se va a subir al sistema (hoy:
+  // marcada Realizado en la app sin recolección ni razón, así que no pasa el filtro
+  // de actividad de ResumenCompleto). null cuando la fila es consistente; ausente si
+  // el snapshot lo generó un Lambda anterior a los chequeos de congruencia.
+  alerta?: string | null;
   // Hora "HH:MM" en que la app del chofer registró la visita (VistaMonitor.FechaVisita).
   // null = todavía no se visitó; ausente si el snapshot lo generó un Lambda anterior
   // a la línea de tiempo. Alimenta la línea de tiempo (vista Mapa y carrusel) y la
@@ -155,6 +160,25 @@ export interface Parametros {
   zona_map: { prefijo: string; zona: string; activa: boolean }[];
 }
 
+// Diferencias entre lo que muestra el monitor (VistaMonitor + LocalesRuta) y lo que
+// va a subir al sistema (ResumenCompleto → ResumenCompleto_Historico →
+// CargaVisitasFromAppsheet). Antes se veían como números que no cuadraban de un día
+// para el otro; ahora el publisher las cuenta y las nombra (ver `_inconsistencias`
+// en compute.py). `ejemplos` viene truncado; `n` es el total real.
+export interface GrupoInconsistencia {
+  clave: string;       // "sin_tripulacion" | "locales_sin_tripulacion" | …
+  titulo: string;
+  detalle: string;     // qué significa y qué consecuencia tiene en la carga
+  n: number;
+  litros: number;      // litros involucrados (0 si el grupo no mueve litros)
+  ejemplos: { id_local: number | null; local: string; litros?: number; estado?: string }[];
+}
+
+export interface Inconsistencias {
+  total: number;
+  grupos: GrupoInconsistencia[];
+}
+
 export type ZonaNombre = "Global" | "Santiago" | "Regiones";
 
 // Fila del mapeo prefijo → centro (tabla Supabase monitor_zona_map). El tipo vive
@@ -185,4 +209,6 @@ export interface Snapshot {
   };
   carrusel: CarruselChofer[];
   parametros: Parametros;
+  // Ausente en snapshots generados por un Lambda anterior a los chequeos.
+  inconsistencias?: Inconsistencias;
 }

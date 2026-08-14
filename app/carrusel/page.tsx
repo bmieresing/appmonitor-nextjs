@@ -11,7 +11,8 @@ function CarruselInner() {
   if (!snap) return <p className="muted">Cargando…</p>;
   // `zonas.Global` alimenta la pestaña Global: sus KPIs ya los calculó el publisher
   // (son los mismos de la vista Global), así que el carrusel no los vuelve a sumar.
-  return <CarruselView carrusel={snap.carrusel} global={snap.zonas?.Global} initialChofer={chofer} />;
+  return <CarruselView carrusel={snap.carrusel} global={snap.zonas?.Global} initialChofer={chofer}
+    inconsistencias={snap.inconsistencias} />;
 }
 
 export default function CarruselPage() {

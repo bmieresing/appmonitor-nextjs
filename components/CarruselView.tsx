@@ -11,6 +11,7 @@ import ControlesReproduccion from "./ControlesReproduccion";
 import { useReproduccion } from "./useReproduccion";
 import Tank from "./Tank";
 import AvisoDesbalance from "./AvisoDesbalance";
+import PanelInconsistencias from "./PanelInconsistencias";
 import { useTheme } from "./ThemeProvider";
 import { useCentroColores, estiloRuta } from "./CentroColores";
 import { breakdownDonutOption } from "@/lib/charts";
@@ -19,7 +20,7 @@ import { avisoDeCarrusel } from "@/lib/cards";
 import { estadoColor, prioridadColor, productColor, semaforo, semaforoOnDark } from "@/lib/theme";
 import { tieneCoords, type PuntoMapa } from "@/lib/mapa";
 import { aMinutos, filasTiempo, ventanaDe, type FilaTiempo, type RutaTiempo, type Ventana } from "@/lib/tiempo";
-import type { CarruselChofer, DetalleLocal, Zona } from "@/lib/types";
+import type { CarruselChofer, DetalleLocal, Inconsistencias, Zona } from "@/lib/types";
 
 // Nombre de la pestaña consolidada. Es también el `chofer` de la tarjeta sintética,
 // así que sirve de clave para distinguirla del resto.
@@ -351,10 +352,13 @@ function DonutDesglose({ c }: { c: CarruselChofer }) {
   );
 }
 
-export default function CarruselView({ carrusel, global, initialChofer }: {
+export default function CarruselView({ carrusel, global, initialChofer, inconsistencias }: {
   carrusel: CarruselChofer[];
   global?: Zona;
   initialChofer?: string;
+  // Diferencias con lo que se va a subir al sistema. Son globales del snapshot, no
+  // de un chofer: el panel va al final de la vista, debajo del detalle.
+  inconsistencias?: Inconsistencias;
 }) {
   const { tokens: t } = useTheme();
   const { centroDe, colorDe } = useCentroColores();
@@ -660,7 +664,16 @@ export default function CarruselView({ carrusel, global, initialChofer }: {
                           ? <span className="pill" style={{ background: `color-mix(in srgb, ${morado} 16%, transparent)`, color: morado }}>🚨 Sí</span>
                           : <span style={{ color: "var(--muted)" }}>—</span>}
                       </td>
-                      <td><span className="pill" style={{ background: `color-mix(in srgb, ${ec} 16%, transparent)`, color: ec }}>{d.estado}</span></td>
+                      <td>
+                        <span className="pill" style={{ background: `color-mix(in srgb, ${ec} 16%, transparent)`, color: ec }}>{d.estado}</span>
+                        {/* El estado viene de LocalesRuta y puede contradecir lo que
+                            se va a subir; cuando pasa, la fila lo dice acá mismo en
+                            vez de dejar la diferencia para el día siguiente. */}
+                        {d.alerta && (
+                          <span title={d.alerta} aria-label={d.alerta}
+                            style={{ marginLeft: 6, color: "var(--warning)", cursor: "help" }}>⚠️</span>
+                        )}
+                      </td>
                       <td style={{ color: "var(--muted)" }}>{d.razon ?? "—"}</td>
                       <td className="tnum" style={{ textAlign: "right", fontWeight: 700 }}>{d.litros > 0 ? `${miles(d.litros)} L` : "—"}</td>
                     </tr>
@@ -671,6 +684,8 @@ export default function CarruselView({ carrusel, global, initialChofer }: {
           </div>
         )}
       </div>
+
+      <PanelInconsistencias inc={inconsistencias} />
     </div>
   );
 }
