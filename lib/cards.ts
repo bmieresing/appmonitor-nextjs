@@ -74,13 +74,3 @@ export function desbalance(d: DatosAviso): Desbalance {
   if (d.pctAlta > d.pctLit) return "warn";
   return "";
 }
-
-/**
- * Manda al final a los choferes sin locales, conservando el orden del publisher
- * (por % de litros desc) dentro de cada bloque — `sort` es estable. Sin esto se
- * mezclan arriba: sin locales el % de litros igual puede salir alto y tapan a los
- * que sí están rindiendo.
- */
-export function conSinLocalesAlFinal(cards: Card[]): Card[] {
-  return cards.slice().sort((a, b) => Number(sinLocales(a)) - Number(sinLocales(b)));
-}

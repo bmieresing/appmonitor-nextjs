@@ -55,8 +55,13 @@ export default function Tank({
   // Sobre el hero oscuro el relleno va bastante más sólido: a 34% un pastel sobre
   // el degradado verde-petróleo casi no se despegaba del fondo del balde.
   const fill = `color-mix(in srgb, ${color} ${onDark ? 52 : 22}%, transparent)`;
+  const tip = buildTip(label, pct, sub, na, noAlcN);
   return (
-    <div className={`tank has-tip${onDark ? " on-dark" : ""}`} data-tip={buildTip(label, pct, sub, na, noAlcN)}>
+    // tabIndex + aria-label: el desglose del medidor vive en el globo, que se abría
+    // solo con el mouse. Así se llega con el teclado (y lo lee un lector de
+    // pantalla) en vez de quedar disponible únicamente al pasar el cursor.
+    <div className={`tank has-tip${onDark ? " on-dark" : ""}`} data-tip={tip}
+      tabIndex={0} role="img" aria-label={`${label}: ${tip.replace(/\n/g, ". ")}`}>
       <div className="tank-body" style={{ borderColor: color }}>
         <div className="tank-fill" style={{ height: `${p}%`, background: fill }} />
         {na > 0 && <div className="tank-na" style={{ bottom: `${p}%`, height: `${na}%` }} />}

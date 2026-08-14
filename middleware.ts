@@ -30,19 +30,28 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  // getClaims() y no getUser(): este middleware corre en CADA request, incluido el
+  // poll de /api/snapshot cada 60 s de cada pantalla. getUser() valida el token
+  // contra el servidor de Auth, o sea un round-trip de red por poll y por pantalla,
+  // en el camino crítico del dato. El proyecto firma los JWT con ES256 (claves
+  // asimétricas), así que getClaims() los verifica LOCALMENTE con WebCrypto contra
+  // el JWKS cacheado — sin red, y con la misma garantía criptográfica. Igual que
+  // getUser(), refresca la sesión si el token está por expirar, así que las cookies
+  // se siguen renovando por el setAll de acá arriba.
+  const { data: verificado } = await supabase.auth.getClaims();
+  const autenticado = !!verificado?.claims?.sub;
 
   const path = request.nextUrl.pathname;
   const isLogin = path === "/login";
 
-  if (!user && !isLogin) {
+  if (!autenticado && !isLogin) {
     if (path.startsWith("/api")) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  if (user && isLogin) {
+  if (autenticado && isLogin) {
     return NextResponse.redirect(new URL("/global", request.url));
   }
 

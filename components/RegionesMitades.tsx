@@ -1,8 +1,8 @@
 "use client";
-// Regiones partido en dos mitades —Norte y Sur— que se alternan solas. Es la
-// alternativa al feed auto-desplazable (`AutoScrollCards`) del Carrusel Zonas: en
-// vez de arrastrar la lista entera de choferes por la pantalla, muestra media flota
-// quieta el tiempo suficiente para leerla y después cambia de mitad. Cada mitad
+// Regiones partido en dos mitades —Norte y Sur— que se alternan solas. Reemplazó al
+// feed auto-desplazable que arrastraba la lista entera de choferes por la pantalla:
+// muestra media flota quieta el tiempo suficiente para leerla y después cambia de
+// mitad, que en un mural se lee mucho mejor que algo en movimiento. Cada mitad
 // dura lo mismo que una zona entera (`mitadMs`), así que Regiones se lleva el doble
 // de tiempo que Global o Santiago — es el doble de gente.
 //
@@ -10,7 +10,7 @@
 // Regiones: acá el switch cambia solo, allá lo mueve el operador.
 import React, { useEffect, useMemo, useState } from "react";
 import KpiRow from "./KpiRow";
-import CardChofer from "./CardChofer";
+import GrillaChoferes from "./GrillaChoferes";
 import MarcoMitades from "./MarcoMitades";
 import { useCentroColores } from "./CentroColores";
 import { useTheme } from "./ThemeProvider";
@@ -47,8 +47,7 @@ export default function RegionesMitades({ zona, mitadMs, pausado = false }:
       <div className="section-title">Choferes</div>
       <MarcoMitades activa={mitad} onCambiar={(id) => setIdx(MITADES.indexOf(id as Mitad))}
         opciones={MITADES.map((m) => ({ id: m, label: m, icono: ICONO_MITAD[m], color: colorMitad(m, t), n: grupos[m].length }))}>
-        {cards.length === 0 ? <p className="muted">Sin choferes en {mitad}.</p>
-          : <div className="card-grid">{cards.map((c) => <CardChofer key={c.chofer} c={c} />)}</div>}
+        <GrillaChoferes cards={cards} vacio={`Sin choferes en ${mitad}.`} />
       </MarcoMitades>
       <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
         {miles(zona.cards.length)} choferes en Regiones · {miles(grupos.Norte.length)} Norte · {miles(grupos.Sur.length)} Sur

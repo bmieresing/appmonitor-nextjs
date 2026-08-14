@@ -2,6 +2,15 @@
 // La paleta de datos (categórica / status / secuencial) sale de la skill
 // `dataviz` (paleta de referencia validada — CVD-safe, contraste chequeado).
 // El acento de marca (verde) se usa solo en el chrome, no en los datos.
+//
+// ESTE ARCHIVO ES LA ÚNICA FUENTE DE LA PALETA. Lo que pinta JavaScript (ECharts,
+// semaforo(), los pines del mapa) lee los tokens de acá, y lo que pinta CSS lee las
+// custom properties que genera `cssVariables()` al final — del mismo objeto. Antes
+// la paleta estaba escrita dos veces, acá y a mano en globals.css, y los valores ya
+// habían divergido: `good` en tema oscuro era #0ca30c de un lado y #22c55e del
+// otro, y los grises de texto no coincidían en ninguno de los dos temas. Eso hacía
+// que dos señales que significan lo mismo —el triángulo de aviso, que pinta CSS, y
+// el tanque de al lado, que pinta JS— salieran de distinto color en la misma card.
 
 export type Mode = "light" | "dark";
 
@@ -23,6 +32,7 @@ export interface Tokens {
   serious: string;
   critical: string;
   criticalDark: string;   // rojo profundo: el fallo "de verdad", frente al no alcanzado
+  bar: string;            // barra de magnitud (tops de litros del carrusel) — coral
   // categórica (orden fijo, CVD-safe)
   categorical: string[];
   // rampa secuencial de marca (verde, claro→oscuro) para magnitud de litros
@@ -35,8 +45,11 @@ export const THEME: Record<Mode, Tokens> = {
     surface: "#ffffff",
     surface2: "#fbfcfb",
     text: "#0b0b0b",
-    textSecondary: "#52514e",
-    muted: "#898781",
+    // Los grises de texto son los que tenía globals.css y no los de la paleta
+    // original: sobre este fondo claro dan el contraste que los otros no llegaban
+    // a dar, y `muted` tiñe etiquetas que hay que poder leer, no decoración.
+    textSecondary: "#45443f",
+    muted: "#6d6b64",
     border: "rgba(11,11,11,0.10)",
     grid: "#e8ebe8",
     axis: "#c3c2b7",
@@ -47,6 +60,7 @@ export const THEME: Record<Mode, Tokens> = {
     serious: "#ec835a",
     critical: "#d03b3b",
     criticalDark: "#7a1414",
+    bar: "#ef5b53",
     categorical: ["#2a78d6", "#1baf7a", "#eda100", "#008300", "#4a3aa7", "#e34948", "#e87ba4", "#eb6834"],
     seq: ["#cfe6cf", "#9fce9f", "#6bb76b", "#3f9f3f", "#2d7a2d", "#1f5a1f"],
   },
@@ -55,22 +69,67 @@ export const THEME: Record<Mode, Tokens> = {
     surface: "#181a18",
     surface2: "#1f221f",
     text: "#f4f6f4",
-    textSecondary: "#c3c2b7",
-    muted: "#8f938c",
+    textSecondary: "#d2d4cb",
+    muted: "#a9aea3",
     border: "rgba(255,255,255,0.10)",
     grid: "#2a2d2a",
     axis: "#3a3d3a",
     accent: "#35c46b",
     accent2: "#4bb6d4",
-    good: "#0ca30c",
+    // Verde más brillante que en claro: el #0ca30c de la paleta sobre el fondo
+    // #0d0f0d queda apagado, y es el color del "va bien" de todo el semáforo.
+    good: "#22c55e",
     warning: "#fab219",
     serious: "#ec835a",
     critical: "#e05555",
     criticalDark: "#8f1f1f",
+    bar: "#ff6b63",
     categorical: ["#3987e5", "#199e70", "#c98500", "#2a9d2a", "#9085e9", "#e66767", "#d55181", "#d95926"],
     seq: ["#1f3a1f", "#2d5a2d", "#3f8a3f", "#4faf4f", "#5fc95f", "#8fe08f"],
   },
 };
+
+// ── Puente a CSS ─────────────────────────────────────────────────────────
+// Nombre de la custom property de cada token. Solo los escalares: las paletas
+// (categorical / seq) las consume JavaScript y no tienen uso en hojas de estilo.
+const CSS_VAR: Partial<Record<keyof Tokens, string>> = {
+  bg: "--bg",
+  surface: "--surface",
+  surface2: "--surface-2",
+  text: "--text",
+  textSecondary: "--text-2",
+  muted: "--muted",
+  border: "--border",
+  grid: "--grid",
+  axis: "--axis",
+  accent: "--accent",
+  accent2: "--accent-2",
+  good: "--good",
+  warning: "--warning",
+  serious: "--serious",
+  critical: "--critical",
+  criticalDark: "--critical-dark",
+  bar: "--bar",
+};
+
+function bloqueCss(selector: string, t: Tokens): string {
+  const decls = Object.entries(CSS_VAR)
+    .map(([token, prop]) => `${prop}:${t[token as keyof Tokens] as string};`)
+    .join("");
+  return `${selector}{${decls}}`;
+}
+
+/**
+ * La paleta como CSS. La inyecta el layout en el <head> (server-side, así los
+ * colores ya están en el primer pintado y no hay parpadeo antes de que hidrate
+ * React), y es lo que evita tener que repetir un solo valor a mano en globals.css.
+ */
+export function cssVariables(): string {
+  return [
+    bloqueCss(':root,[data-theme="light"]', THEME.light),
+    bloqueCss('[data-theme="dark"]', THEME.dark),
+  ].join("");
+}
 
 // Color de marca fijo por producto. Es presentación pura (antes viajaba en cada
 // snapshot desde el Lambda); vive acá con el resto del sistema de diseño. Lo usa

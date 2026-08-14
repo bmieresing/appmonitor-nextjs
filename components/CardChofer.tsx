@@ -1,6 +1,6 @@
 "use client";
-// Card de un chofer (usada en ZoneView, el feed auto-scroll y carrusel-zonas). Se
-// separó de ZoneView para poder reusarla sin import circular con AutoScrollCards.
+// Card de un chofer. La monta siempre GrillaChoferes, que es quien decide si va en
+// la grilla principal o en el bloque plegado de los que hoy no tienen locales.
 import React from "react";
 import Link from "next/link";
 import Tank from "./Tank";

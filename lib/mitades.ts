@@ -8,7 +8,6 @@
 // chofer cuya tripulación todavía no mapea a ningún centro—: en estas vistas no
 // puede quedar nadie afuera.
 
-import { conSinLocalesAlFinal } from "@/lib/cards";
 import { tramosPorCentro } from "@/lib/mapa";
 import type { Tokens } from "@/lib/theme";
 import type { Card, ZonaMapRowLike } from "@/lib/types";
@@ -39,6 +38,8 @@ export function agruparMitades(
     const centro = centroDe(c.tripulacion);
     out[tramos.get(centro ?? "") === "Sur" ? "Sur" : "Norte"].push(c);
   }
-  // Los sin locales al final de SU mitad, igual que en la vista Regiones.
-  return { Norte: conSinLocalesAlFinal(out.Norte), Sur: conSinLocalesAlFinal(out.Sur) };
+  // El orden dentro de cada mitad es el del publisher (por % de litros desc). Ya no
+  // hace falta mandar los sin-locales al final: GrillaChoferes los separa en su
+  // propio bloque plegado, que es lo que antes intentaba resolver el orden.
+  return out;
 }

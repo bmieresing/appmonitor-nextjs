@@ -1,43 +1,22 @@
 /* ═══════════════════════════════════════════════════════════════
-   Sistema de diseño — tokens claro/oscuro (paleta validada dataviz).
-   El chrome usa neutros + acento verde de marca; los datos, la paleta
-   categórica/status desde lib/theme.ts.
+   Sistema de diseño — tokens claro/oscuro.
+
+   LOS COLORES NO ESTÁN ACÁ: los genera `cssVariables()` desde lib/theme.ts y los
+   inyecta el layout en el <head>, antes de esta hoja. Ese archivo es la única
+   fuente, así lo que pinta CSS y lo que pinta JavaScript (ECharts, semaforo(), los
+   pines del mapa) no se pueden desincronizar — que es exactamente lo que había
+   pasado cuando la paleta estaba escrita en los dos lados.
+
+   Acá quedan solo las propiedades que no son color de dato: sombras y
+   color-scheme, que no tienen consumidor en JavaScript.
    ═══════════════════════════════════════════════════════════════ */
 :root,
 [data-theme="light"] {
-  --bg: #f6f8f6;
-  --surface: #ffffff;
-  --surface-2: #fbfcfb;
-  --text: #0b0b0b;
-  --text-2: #45443f;
-  --muted: #6d6b64;
-  --border: rgba(11, 11, 11, 0.10);
-  --grid: #e8ebe8;
-  --accent: #2d7a2d;
-  --accent-2: #1a6b8a;
-  --good: #0ca30c;
-  --warning: #eda100;
-  --critical: #d03b3b;
-  --bar: #ef5b53; /* barra de magnitud (tops de litros del carrusel) — coral */
   --shadow: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(16,40,16,0.06);
   --shadow-lg: 0 12px 40px rgba(16,40,16,0.12);
   color-scheme: light;
 }
 [data-theme="dark"] {
-  --bg: #0d0f0d;
-  --surface: #181a18;
-  --surface-2: #1f221f;
-  --text: #f4f6f4;
-  --text-2: #d2d4cb;
-  --muted: #a9aea3;
-  --border: rgba(255, 255, 255, 0.10);
-  --grid: #2a2d2a;
-  --accent: #35c46b;
-  --accent-2: #4bb6d4;
-  --good: #22c55e;
-  --warning: #fab219;
-  --critical: #e05555;
-  --bar: #ff6b63;
   --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
   --shadow-lg: 0 16px 48px rgba(0,0,0,0.5);
   color-scheme: dark;
@@ -136,36 +115,6 @@ body.kiosk .topbar { display: none; }
 body.kiosk .content { padding: 10px 16px 16px; }
 body.kiosk .toolbar { margin-bottom: 10px; }
 
-/* ── Feed vertical (Carrusel Regiones) ──────────────────────────
-   Una sola columna tipo mobile con TODAS las cards, que se auto-desplaza hacia
-   abajo en loop continuo (para TV/kiosco: se ven todos los choferes). El truco
-   del loop sin salto: se renderiza la lista DUPLICADA y se traslada -50%, así al
-   terminar la 2ª copia queda donde arrancó la 1ª. Requiere margen uniforme por
-   item para que la costura no se note. */
-.vscroll-viewport {
-  position: relative;
-  overflow: hidden;
-  /* El alto lo fija AutoScrollCards por JS (espacio restante bajo lo que hay
-     arriba); acá solo un mínimo por si aún no se midió. */
-  min-height: 240px;
-  /* Desvanece los bordes sup/inf para el efecto "feed". */
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 5%, #000 95%, transparent 100%);
-          mask-image: linear-gradient(to bottom, transparent 0, #000 5%, #000 95%, transparent 100%);
-}
-.vscroll-track {
-  display: flex; flex-direction: column; width: 100%;
-  animation-name: vscroll; animation-timing-function: linear; animation-iteration-count: infinite;
-  will-change: transform;
-}
-/* Cada copia de la grilla lleva abajo el mismo gap que la grilla (14px), para que
-   la costura entre las dos copias no se note al hacer el loop -50%. */
-.vscroll-copy { margin-bottom: 14px; }
-/* Marca de reinicio al tope de cada copia: dice dónde vuelve a empezar la lista.
-   Va en las DOS copias —tienen que medir igual o el loop -50% deja de calzar. */
-.vscroll-sep { height: 2px; border-radius: 999px; margin-bottom: 14px; background: color-mix(in srgb, var(--accent) 45%, transparent); }
-@keyframes vscroll { from { transform: translateY(0); } to { transform: translateY(-50%); } }
-@media (prefers-reduced-motion: reduce) { .vscroll-track { animation: none; } }
-
 /* ── Cards ──────────────────────────────────────────────────── */
 .card {
   background: var(--surface); border: 1px solid var(--border);
@@ -243,6 +192,41 @@ body.kiosk .toolbar { margin-bottom: 10px; }
 
 /* ── Cards de choferes / centros ────────────────────────────── */
 .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 14px; }
+
+/* Bloque plegado de "lo que hoy no está asignado" — centros sin ruta y choferes sin
+   locales. No tienen porcentaje que mostrar: dejarlos en la grilla con los medidores
+   en 0 % los hace ver como si estuvieran fallando. Plegado por defecto: es una nota
+   al pie de la vista, no parte del tablero. */
+.off-block { margin-top: 16px; }
+.off-block > summary {
+  cursor: pointer; display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+  color: var(--muted); padding: 4px 2px; list-style: none;
+}
+.off-block > summary::-webkit-details-marker { display: none; }
+.off-block > summary::before { content: "▸"; font-size: 10px; transition: transform .15s; }
+.off-block[open] > summary::before { transform: rotate(90deg); }
+.off-block > summary:hover { color: var(--text-2); }
+.off-block > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.off-block > summary .tnum {
+  background: var(--grid); color: var(--text-2); border-radius: 999px;
+  padding: 1px 8px; font-size: 11.5px; font-weight: 800;
+}
+/* Las cards de adentro van atenuadas: siguen mostrando sus litros, pero no compiten
+   con las de quien sí está en la calle. */
+.off-grid { margin-top: 10px; }
+.off-grid .entity-card { opacity: .74; }
+.off-grid .entity-card:hover { opacity: 1; }
+.centros-off-lista { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 2px 2px; }
+.centro-off {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 12px; border-radius: 999px;
+  border: 1px dashed var(--border); background: var(--surface-2);
+  font-size: 12.5px; color: var(--text-2); opacity: .78;
+}
+.centro-off-dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; opacity: .65; }
+.centro-off-nom { font-weight: 600; }
+.centro-off-prom { color: var(--muted); font-size: 11.5px; }
 
 /* ── Filtro de centro (dropdown, tab Regiones) ─────────────────── */
 .fc { position: relative; display: inline-flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
@@ -356,7 +340,9 @@ body.kiosk .toolbar { margin-bottom: 10px; }
   bottom: auto; top: calc(100% + 3px); transform: translateX(-50%) translateY(-3px);
   border-top-color: transparent; border-bottom-color: var(--surface);
 }
-.has-tip.tip-abajo:hover::after, .has-tip.tip-abajo:hover::before { transform: translateX(-50%) translateY(0); }
+.has-tip.tip-abajo:hover::after, .has-tip.tip-abajo:hover::before,
+.has-tip.tip-abajo:focus-visible::after, .has-tip.tip-abajo:focus-visible::before,
+.has-tip.tip-abajo:focus-within::after, .has-tip.tip-abajo:focus-within::before { transform: translateX(-50%) translateY(0); }
 
 /* Flechita apuntando al tanque */
 .has-tip::before {
@@ -365,7 +351,17 @@ body.kiosk .toolbar { margin-bottom: 10px; }
   opacity: 0; pointer-events: none; transition: opacity .12s ease, transform .12s ease;
   z-index: 50;
 }
-.has-tip:hover::after, .has-tip:hover::before { opacity: 1; transform: translateX(-50%) translateY(0); }
+/* El globo aparece con el mouse Y con el foco del teclado. Sin la parte de foco,
+   todo lo que explica un medidor —el desglose logrado / no alcanzado / esperado—
+   simplemente no existía para quien navega con teclado ni en el mural táctil, que
+   son los dos usos reales de este dashboard. Los elementos que lo llevan son
+   focusables (tabIndex 0 en Tank y en la ⓘ de Estadísticas). */
+.has-tip:hover::after, .has-tip:hover::before,
+.has-tip:focus-visible::after, .has-tip:focus-visible::before,
+.has-tip:focus-within::after, .has-tip:focus-within::before { opacity: 1; transform: translateX(-50%) translateY(0); }
+.has-tip:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px;
+}
 .track { position: relative; height: 7px; border-radius: 999px; background: var(--grid); overflow: hidden; }
 .track > i { position: absolute; inset: 0 auto 0 0; border-radius: 999px; }
 .track > .na { background: var(--critical); opacity: .55; }

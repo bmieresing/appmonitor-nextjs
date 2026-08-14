@@ -7,9 +7,9 @@
 // que es lo que permite ver de un vistazo quién arrancó tarde, quién viene
 // encadenando locales y quién lleva una hora sin registrar nada.
 //
-// DOM y CSS, no canvas: el mismo criterio del resto del dashboard (ver
-// app/rendimiento/page.tsx). Las marcas son pocas por fila y así los nombres y las
-// horas quedan nítidos a cualquier zoom, y el detalle es HTML seleccionable.
+// DOM y CSS, no canvas: el mismo criterio de las barras del resto del dashboard.
+// Las marcas son pocas por fila y así los nombres y las horas quedan nítidos a
+// cualquier zoom, y el detalle es HTML seleccionable.
 import React, { useEffect, useMemo, useState } from "react";
 import { estiloRuta } from "@/components/CentroColores";
 import { useTheme } from "@/components/ThemeProvider";

@@ -157,7 +157,9 @@ export interface Parametros {
     litros: number;
     pct: number | null;
   }[];
-  zona_map: { prefijo: string; zona: string; activa: boolean }[];
+  // El mapeo prefijo → centro no viaja en el snapshot: la vista Parámetros lo lee y
+  // lo escribe en la tabla Supabase `monitor_zona_map` (ver CentroColores.tsx), que
+  // es la única fuente y se aplica sin redeploy del Lambda.
 }
 
 // Diferencias entre lo que muestra el monitor (VistaMonitor + LocalesRuta) y lo que
@@ -202,8 +204,6 @@ export interface Snapshot {
     choferes: {
       chofer: string;
       litros: number;
-      locales_ok: number;
-      locales_total: number;
       productos?: { producto: string; litros: number }[];
     }[];
   };

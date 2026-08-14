@@ -12,13 +12,12 @@
 import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import KpiRow from "@/components/KpiRow";
-import CardChofer from "@/components/CardChofer";
+import GrillaChoferes from "@/components/GrillaChoferes";
 import MarcoMitades from "@/components/MarcoMitades";
 import FiltroCentro from "@/components/FiltroCentro";
 import { useSnap } from "@/components/SnapshotContext";
 import { useCentroColores } from "@/components/CentroColores";
 import { useTheme } from "@/components/ThemeProvider";
-import { conSinLocalesAlFinal } from "@/lib/cards";
 import { agruparMitades, colorMitad, ICONO_MITAD, MITADES } from "@/lib/mitades";
 
 const TODOS = "Todos";
@@ -51,7 +50,7 @@ function RegionesInner() {
   // quedó del centro elegido, no la flota entera.
   const delCentro = useMemo(() => {
     const base = zonaReg?.cards ?? [];
-    return conSinLocalesAlFinal(centro ? base.filter((c) => centroDe(c.tripulacion) === centro) : base);
+    return centro ? base.filter((c) => centroDe(c.tripulacion) === centro) : base;
   }, [zonaReg, centro, centroDe]);
 
   const grupos = useMemo(
@@ -75,9 +74,7 @@ function RegionesInner() {
       <KpiRow zona={zonaReg} />
       <div className="section-title">Choferes</div>
       <MarcoMitades opciones={opciones} activa={mitad} onCambiar={setMitad}>
-        {cards.length === 0
-          ? <p className="muted">Ningún chofer coincide con los filtros.</p>
-          : <div className="card-grid">{cards.map((c) => <CardChofer key={c.chofer} c={c} />)}</div>}
+        <GrillaChoferes cards={cards} vacio="Ningún chofer coincide con los filtros." />
       </MarcoMitades>
     </div>
   );

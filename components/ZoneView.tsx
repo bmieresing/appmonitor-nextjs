@@ -1,14 +1,11 @@
 "use client";
 // Vista de zona: fila KPI + grilla de cards (choferes o, en Global, centros).
-// Con `scrollCards` las cards de chofer se muestran como feed vertical auto-
-// desplazable (para Regiones en el Carrusel Zonas) en vez de grilla estática.
-import React from "react";
+import React, { useMemo } from "react";
 import Link from "next/link";
 import KpiRow from "./KpiRow";
 import Tank from "./Tank";
-import CardChofer from "./CardChofer";
+import GrillaChoferes from "./GrillaChoferes";
 import AvisoDesbalance from "./AvisoDesbalance";
-import AutoScrollCards from "./AutoScrollCards";
 import { useTheme } from "./ThemeProvider";
 import { useCentroColores } from "./CentroColores";
 import { miles } from "@/lib/format";
@@ -49,19 +46,56 @@ function CardCentro({ c }: { c: Centro }) {
   );
 }
 
-export default function ZoneView({ zona, esGlobal, scrollCards = false }:
-  { zona: Zona; esGlobal: boolean; scrollCards?: boolean }) {
+// Centro que hoy no tiene ni un local asignado. NO es un centro al 0 %: es un
+// centro que no salió a la calle, y dibujarlo con los mismos tanques en rojo lo
+// hacía indistinguible del que sí salió y va mal — con la mayoría de los centros
+// sin ruta en un día normal, dos tercios de la pantalla principal gritaban alarma
+// por nada. Va como chip atenuado, sin semáforo y sin link (no hay choferes que
+// mostrar del otro lado).
+function ChipCentroSinRuta({ c }: { c: Centro }) {
+  const { colorDe } = useCentroColores();
+  const color = colorDe(c.centro);
+  return (
+    <span className="centro-off" title={`${c.centro}: sin locales asignados hoy`}>
+      <span className="centro-off-dot" style={{ background: color ?? "var(--muted)" }} />
+      <span className="centro-off-nom">{c.centro}</span>
+      {c.prom > 0 && <span className="centro-off-prom tnum">{miles(c.prom)} L esperados</span>}
+    </span>
+  );
+}
+
+export default function ZoneView({ zona, esGlobal }:
+  { zona: Zona; esGlobal: boolean }) {
+  // Un centro sin locales asignados no tiene porcentaje que mostrar: se separa del
+  // resto en vez de competir con los que sí están operando.
+  const [activos, sinRuta] = useMemo(() => [
+    zona.centros.filter((c) => c.total > 0),
+    zona.centros.filter((c) => c.total === 0),
+  ], [zona.centros]);
+
   return (
     <div>
       <KpiRow zona={zona} />
       <div className="section-title">{esGlobal ? "Centros de acopio" : "Choferes"}</div>
       {esGlobal ? (
-        zona.centros.length === 0 ? <p className="muted">Sin datos de centros de acopio.</p>
-          : <div className="card-grid">{zona.centros.map((c) => <CardCentro key={c.centro} c={c} />)}</div>
-      ) : zona.cards.length === 0 ? <p className="muted">Sin datos de choferes.</p>
-        : scrollCards
-          ? <AutoScrollCards cards={zona.cards} />
-          : <div className="card-grid">{zona.cards.map((c) => <CardChofer key={c.chofer} c={c} />)}</div>}
+        zona.centros.length === 0 ? <p className="muted">Sin datos de centros de acopio.</p> : (
+          <>
+            {activos.length === 0
+              ? <p className="muted">Ningún centro tiene locales asignados hoy.</p>
+              : <div className="card-grid">{activos.map((c) => <CardCentro key={c.centro} c={c} />)}</div>}
+            {sinRuta.length > 0 && (
+              <details className="off-block">
+                <summary>
+                  Sin ruta hoy <span className="tnum">{sinRuta.length}</span>
+                </summary>
+                <div className="centros-off-lista">
+                  {sinRuta.map((c) => <ChipCentroSinRuta key={c.centro} c={c} />)}
+                </div>
+              </details>
+            )}
+          </>
+        )
+      ) : <GrillaChoferes cards={zona.cards} />}
     </div>
   );
 }

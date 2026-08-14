@@ -30,3 +30,25 @@ export async function getSnapshot(): Promise<Snapshot> {
   if (!data) throw new Error("Todavía no hay snapshot en la base. Corré el publisher.");
   return data.data as Snapshot;
 }
+
+/**
+ * El snapshot SOLO si es más nuevo que `desde`; `null` si no cambió.
+ *
+ * El publisher recalcula cada 5 min y la app polea cada 60 s: cuatro de cada cinco
+ * respuestas traen exactamente el mismo snapshot. El `.gt()` mueve esa comparación
+ * al servidor —Postgres filtra por la columna `generated_at`, que está fuera del
+ * JSONB— así que cuando no hay nada nuevo no viaja el `data`, que son ~300 KB. Es
+ * un solo round-trip igual que antes: no se pregunta primero y se pide después.
+ *
+ * Sin `desde` (el primer fetch de la pestaña) trae el snapshot completo siempre.
+ */
+export async function getSnapshotSiCambio(desde: string | null): Promise<Snapshot | null> {
+  const sb = getClient();
+  let q = sb.from("monitor_snapshot").select("data").eq("id", 1);
+  // Fecha ilegible del cliente: se ignora el filtro y se manda el snapshot entero,
+  // que es el comportamiento seguro (peor caso, una transferencia de más).
+  if (desde && !Number.isNaN(Date.parse(desde))) q = q.gt("generated_at", desde);
+  const { data, error } = await q.maybeSingle();
+  if (error) throw new Error(`Supabase: ${error.message}`);
+  return data ? (data.data as Snapshot) : null;
+}

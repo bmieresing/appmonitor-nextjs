@@ -1,8 +1,6 @@
 "use client";
 // Carrusel Zonas: cicla Global → Santiago → Regiones. Regiones no va como una lista
-// que se desplaza sola sino partido en Norte / Sur (ver RegionesMitades), que es la
-// versión que reemplazó a la anterior — esa quedó en /carrusel-zonas-v1, fuera del
-// menú, por si hay que volver a mirarla.
+// que se desplaza sola sino partido en Norte / Sur (ver RegionesMitades).
 //
 // Cada mitad de Regiones dura lo mismo que Global o Santiago, así que Regiones se
 // queda el doble: una mitad por turno y recién ahí avanza el ciclo. Los dos relojes

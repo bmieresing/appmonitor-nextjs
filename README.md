@@ -28,7 +28,7 @@ muestra **"no hay datos"** — no hay modo demo.
 > El **publisher no corre en Vercel** (deps pesadas + RDS privadas + Google
 > Sheets). Es un **Lambda** que calcula el snapshot y lo devuelve; el **cron de
 > Supabase** le pega cada 5 min y rellena `monitor_snapshot` con esa respuesta. La
-> app en Vercel solo lee la tabla. Build del Lambda: `../lambda/build_lambda.ps1`.
+> app en Vercel solo lee la tabla.
 
 ## Estructura
 
@@ -65,8 +65,8 @@ Para que haya datos, el Lambda + el cron de Supabase deben estar andando (ver
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = la anon key del proyecto.
 4. **Datos**: la tabla `public.monitor_snapshot` + RLS ya están creadas
    (`../supabase/snapshot_schema.sql` + `../supabase/supabase_rls.sql`). El Lambda
-   (`../lambda/`, build con `../lambda/build_lambda.ps1`) + el cron
-   (`../supabase/supabase_cron.sql`) rellenan las filas cada 5 min.
+   (`../lambda/`) + el cron (`../supabase/supabase_cron.sql`) rellenan las filas
+   cada 5 min.
 
 Como Vercel usa `nextjs/` de Root Directory, las carpetas hermanas `../lambda/` y
 `../supabase/` quedan automáticamente fuera del build.

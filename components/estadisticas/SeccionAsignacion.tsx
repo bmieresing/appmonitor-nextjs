@@ -48,9 +48,13 @@ const AVANCES: { v: string; label: string; test: (pct: number) => boolean }[] = 
 // sabe leer en Global/Santiago/Regiones.
 const TIP_ESTADO = "Cómo va el chofer ahora mismo: litros sobre lo esperado, locales realizados y prioridad Alta. Son los mismos baldes de las cards; el detalle está en el globo de cada uno.";
 
-/** Ayuda del encabezado: explica la columna sin ocupar espacio en el título. */
+/** Ayuda del encabezado: explica la columna sin ocupar espacio en el título.
+ *  Focusable: sin eso la explicación de la columna solo existía al pasar el mouse. */
 function Info({ tip }: { tip: string }) {
-  return <span className="est-info has-tip tip-abajo" data-tip={tip} aria-label={tip}>i</span>;
+  return (
+    <span className="est-info has-tip tip-abajo" data-tip={tip}
+      tabIndex={0} role="img" aria-label={tip}>i</span>
+  );
 }
 
 /** Decimal corto para los promedios: 12,4 L por local dice más que 12. */
