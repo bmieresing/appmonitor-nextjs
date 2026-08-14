@@ -16,7 +16,7 @@ import { useTheme } from "./ThemeProvider";
 import { useCentroColores, estiloRuta } from "./CentroColores";
 import { breakdownDonutOption } from "@/lib/charts";
 import { miles } from "@/lib/format";
-import { avisoDeCarrusel } from "@/lib/cards";
+import { avisoDeCarrusel, sinLocales } from "@/lib/cards";
 import { estadoColor, prioridadColor, productColor, semaforo, semaforoOnDark } from "@/lib/theme";
 import { tieneCoords, type PuntoMapa } from "@/lib/mapa";
 import { aMinutos, filasTiempo, ventanaDe, type FilaTiempo, type RutaTiempo, type Ventana } from "@/lib/tiempo";
@@ -378,6 +378,15 @@ export default function CarruselView({ carrusel, global, initialChofer, inconsis
   // Lista de choferes plegable: en un monitor con 25 rutas las pills se comen dos
   // o tres líneas de alto que el hero y el mapa aprovechan mejor.
   const [verPills, setVerPills] = useState(true);
+  // Los choferes que hoy no tienen locales asignados salen de la lista por defecto
+  // (mismo criterio que las grillas de cards: no están en 0 %, están fuera del día)
+  // y se traen con el botón de al lado. No se filtran de `slides`: se saltean al
+  // dibujar, así los índices de las pestañas siguen siendo los mismos.
+  const [verSinLocales, setVerSinLocales] = useState(false);
+  const nSinLocales = useMemo(
+    () => carrusel.filter((ch) => sinLocales(ch)).length,
+    [carrusel],
+  );
   // Orden y filtros por columna del detalle (client-side; el detalle ya viene en
   // el snapshot). sortCol="" = orden natural del publisher (Alta + litros desc).
   const [sortCol, setSortCol] = useState("");
@@ -468,6 +477,17 @@ export default function CarruselView({ carrusel, global, initialChofer, inconsis
           <span className="pills-caret">{verPills ? "▾" : "▸"}</span>
           Choferes <span className="tnum">{miles(carrusel.length)}</span>
         </button>
+        {/* Acompaña a la lista: si las pills están plegadas no hay nada que filtrar. */}
+        {verPills && nSinLocales > 0 && (
+          <button className={`pills-toggle${verSinLocales ? " on" : ""}`} aria-pressed={verSinLocales}
+            onClick={() => setVerSinLocales((v) => !v)}
+            title={verSinLocales
+              ? "Ocultar los choferes que hoy no tienen locales asignados"
+              : "Mostrar los choferes que hoy no tienen locales asignados"}>
+            <span className="pills-caret">{verSinLocales ? "✓" : "＋"}</span>
+            Mostrar choferes sin locales <span className="tnum">{miles(nSinLocales)}</span>
+          </button>
+        )}
         {!verPills && <span className="pills-actual">{esGlobal ? "🌐 " : ""}{c.chofer}</span>}
       </div>
 
@@ -477,6 +497,10 @@ export default function CarruselView({ carrusel, global, initialChofer, inconsis
       {verPills && (
         <div className="pills pills-choferes">
           {slides.map((ch, i) => {
+            // Global nunca se filtra (es la consolidación, no un chofer) y la pestaña
+            // abierta tampoco: si se llegó a un chofer sin locales por link o por
+            // auto-avance, su pill se muestra igual para no perder de vista dónde estás.
+            if (!verSinLocales && i !== idx && ch.chofer !== GLOBAL && sinLocales(ch)) return null;
             const p = Math.max(0, Math.min(100, ch.pct_lit ?? 0));
             const col = semaforo(ch.pct_lit ?? 0, t);
             return (

@@ -1,6 +1,6 @@
 "use client";
 // Vista de zona: fila KPI + grilla de cards (choferes o, en Global, centros).
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import KpiRow from "./KpiRow";
 import Tank from "./Tank";
@@ -73,11 +73,32 @@ export default function ZoneView({ zona, esGlobal }:
     zona.centros.filter((c) => c.total === 0),
   ], [zona.centros]);
 
+  // En Global la sección se puede intercambiar entre los centros de acopio (lo que se
+  // ve siempre, es la lectura por defecto del día) y la grilla con TODOS los choferes,
+  // que en Global es la unión de Santiago + Regiones. Solo cambia esta sección: los
+  // KPIs de arriba son los mismos en las dos pestañas.
+  const [vista, setVista] = useState<"centros" | "choferes">("centros");
+  const verChoferes = esGlobal && vista === "choferes";
+
   return (
     <div>
       <KpiRow zona={zona} />
-      <div className="section-title">{esGlobal ? "Centros de acopio" : "Choferes"}</div>
       {esGlobal ? (
+        <div className="section-head">
+          <div className="section-title">{verChoferes ? "Choferes" : "Centros de acopio"}</div>
+          <div className="tab-sw" role="tablist" aria-label="Qué mostrar en esta sección">
+            <button role="tab" aria-selected={!verChoferes} onClick={() => setVista("centros")}
+              className={`tab-sw-btn${!verChoferes ? " on" : ""}`}>
+              🏭 Centros <span className="n">{activos.length}</span>
+            </button>
+            <button role="tab" aria-selected={verChoferes} onClick={() => setVista("choferes")}
+              className={`tab-sw-btn${verChoferes ? " on" : ""}`}>
+              🚚 Choferes <span className="n">{zona.cards.length}</span>
+            </button>
+          </div>
+        </div>
+      ) : <div className="section-title">Choferes</div>}
+      {esGlobal && !verChoferes ? (
         zona.centros.length === 0 ? <p className="muted">Sin datos de centros de acopio.</p> : (
           <>
             {activos.length === 0
