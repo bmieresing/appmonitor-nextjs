@@ -632,6 +632,10 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
 .mapa-panel-det { font-size: 10.5px; color: var(--muted); margin-top: 3px; }
 /* El contenedor de Leaflet ocupa lo que queda de la card, bajo el encabezado. */
 .mapa-canvas { width: 100%; flex: 1; min-height: 0; background: var(--surface-2); z-index: 0; }
+/* Las tiles de OSM no tienen variante oscura: en el tema oscuro se invierten y se
+   les rota el tono 180° para que el agua y los parques recuperen su color. El
+   filtro va solo sobre la capa de tiles; pines, línea y popups no se tocan. */
+[data-theme="dark"] .mapa-tiles { filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9); }
 
 /* Popups y controles de Leaflet: la librería trae su propio look claro, que en
    tema oscuro queda blanco. Se repintan con los tokens del dashboard. */

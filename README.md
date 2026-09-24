@@ -75,8 +75,9 @@ Como Vercel usa `nextjs/` de Root Directory, las carpetas hermanas `../lambda/` 
 
 - **Gráficos**: ECharts (anillos KPI con tooltip, barras, donut de desglose,
   barras apiladas de efectividad), todos leyendo los tokens del tema.
-- **Mapa**: Leaflet con carga dinámica (toca `window`) y tiles CARTO en variante
-  clara y oscura, para que siga al tema como el resto del dashboard.
+- **Mapa**: Leaflet con carga dinámica (toca `window`) y tiles de OpenStreetMap;
+  en el tema oscuro se invierten con un filtro CSS (`.mapa-tiles`). CARTO se dejó
+  el 24-09-2026: desde el 23-09 estampa "API KEY REQUIRED" en las tiles sin key.
 - **Paleta**: categórica CVD-safe + status de la skill `dataviz` (validada).
 - **Tema**: toggle 🌙/☀️; recuerda la preferencia y arranca según el sistema.
 

@@ -15,15 +15,16 @@ import { miles } from "@/lib/format";
 import { estadoColor } from "@/lib/theme";
 import type { PuntoMapa } from "@/lib/mapa";
 
-// Tiles CARTO (sobre datos de OpenStreetMap): tienen variante clara y oscura, que
-// es lo que permite que el mapa acompañe al tema del resto del dashboard.
-export const TILES: Record<string, string> = {
-  light: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-  dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+// Tiles de OpenStreetMap, sin key. Antes eran de CARTO, que desde el 23-09-2026
+// estampa "API KEY REQUIRED" en cada tile pedida sin key. OSM no tiene variante
+// oscura: la clase `mapa-tiles` le aplica un filtro CSS en el tema oscuro
+// (globals.css), así que la capa no se recrea al cambiar de tema.
+export const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+export const TILE_OPTS = {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  maxZoom: 19,
+  className: "mapa-tiles",
 };
-export const ATRIBUCION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · ' +
-  '&copy; <a href="https://carto.com/attributions">CARTO</a>';
 
 // Chile continental, para el encuadre inicial y el botón "Ver todo Chile".
 export const CHILE_BOUNDS: [[number, number], [number, number]] = [[-56.0, -76.0], [-17.5, -66.0]];
@@ -105,11 +106,10 @@ export default function MapaLocales({
   scrollZoom?: boolean;
   className?: string;
 }) {
-  const { mode, tokens: t } = useTheme();
+  const { tokens: t } = useTheme();
   const ref = useRef<HTMLDivElement>(null);
   const LRef = useRef<typeof L | null>(null);
   const mapRef = useRef<L.Map | null>(null);
-  const tileRef = useRef<L.TileLayer | null>(null);
   const capaRef = useRef<L.LayerGroup | null>(null);
   const marcasRef = useRef<Map<number, L.Marker>>(new Map());
   const [listo, setListo] = useState(false);
@@ -135,6 +135,7 @@ export default function MapaLocales({
         zoomControl: true,
       });
       map.fitBounds(CHILE_BOUNDS);
+      Lf.tileLayer(TILE_URL, TILE_OPTS).addTo(map);
       mapRef.current = map;
       capaRef.current = Lf.layerGroup().addTo(map);
       setListo(true);
@@ -157,25 +158,11 @@ export default function MapaLocales({
       mapRef.current?.remove();
       mapRef.current = null;
       capaRef.current = null;
-      tileRef.current = null;
       marcasRef.current.clear();
     };
     // scrollZoom se fija al montar: no cambia en vivo en ninguna vista.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // ── Tema: se reemplaza la capa de tiles, no el mapa ─────────────────────
-  useEffect(() => {
-    const Lf = LRef.current, map = mapRef.current;
-    if (!listo || !Lf || !map) return;
-    tileRef.current?.remove();
-    tileRef.current = Lf.tileLayer(TILES[mode] ?? TILES.light, {
-      attribution: ATRIBUCION,
-      maxZoom: 19,
-      subdomains: "abcd",
-    }).addTo(map);
-    tileRef.current.bringToBack();
-  }, [listo, mode]);
 
   // ── Puntos ──────────────────────────────────────────────────────────────
   useEffect(() => {

@@ -13,7 +13,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import type * as L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useTheme } from "./ThemeProvider";
-import { ATRIBUCION, CHILE_BOUNDS, PIN_H, PIN_W, TILES, pinSvg, popupHtml } from "./MapaLocales";
+import { CHILE_BOUNDS, PIN_H, PIN_W, TILE_OPTS, TILE_URL, pinSvg, popupHtml } from "./MapaLocales";
 import { estadoColor } from "@/lib/theme";
 import { tieneCoords, type PuntoMapa } from "@/lib/mapa";
 import type { EventoVisita } from "@/lib/tiempo";
@@ -39,11 +39,10 @@ export default function MapaRecorrido({
   minuto: number;
   alto?: number | string;
 }) {
-  const { mode, tokens: t } = useTheme();
+  const { tokens: t } = useTheme();
   const ref = useRef<HTMLDivElement>(null);
   const LRef = useRef<typeof L | null>(null);
   const mapRef = useRef<L.Map | null>(null);
-  const tileRef = useRef<L.TileLayer | null>(null);
   const capaRef = useRef<L.LayerGroup | null>(null);
   const lineaRef = useRef<L.Polyline | null>(null);
   // marcador + su hora (null = pendiente) + la fase ya pintada
@@ -78,6 +77,7 @@ export default function MapaRecorrido({
       LRef.current = Lf;
       const map = Lf.map(ref.current, { preferCanvas: true, scrollWheelZoom: false, zoomControl: true });
       map.fitBounds(CHILE_BOUNDS);
+      Lf.tileLayer(TILE_URL, TILE_OPTS).addTo(map);
       mapRef.current = map;
       capaRef.current = Lf.layerGroup().addTo(map);
       setListo(true);
@@ -104,15 +104,6 @@ export default function MapaRecorrido({
       marcasRef.current = [];
     };
   }, []);
-
-  // ── Tiles según el tema ─────────────────────────────────────────────────
-  useEffect(() => {
-    const Lf = LRef.current, map = mapRef.current;
-    if (!listo || !Lf || !map) return;
-    tileRef.current?.remove();
-    tileRef.current = Lf.tileLayer(TILES[mode] ?? TILES.light, { attribution: ATRIBUCION, maxZoom: 19, subdomains: "abcd" }).addTo(map);
-    tileRef.current.bringToBack();
-  }, [listo, mode]);
 
   // ── Marcadores y línea: se construyen una vez por ruta ───────────────────
   useEffect(() => {
