@@ -17,11 +17,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import MapaLocales, { PinLeyenda } from "@/components/MapaLocales";
 import FullscreenToggle from "@/components/FullscreenToggle";
+import MapaModal, { BotonAgrandar } from "@/components/MapaModal";
 import TimelineRutas from "@/components/TimelineRutas";
 import ReproduccionRutas from "@/components/ReproduccionRutas";
 import { useSnap } from "@/components/SnapshotContext";
 import { useGps } from "@/components/useGps";
-import { trazaDe } from "@/lib/gps";
+import { finTraza, inicioMovimiento, trazaDe } from "@/lib/gps";
 import { useCentroColores, estiloRuta } from "@/components/CentroColores";
 import { useTheme } from "@/components/ThemeProvider";
 import {
@@ -44,9 +45,9 @@ const MODOS: { id: Modo; label: string; icono: string; title: string }[] = [
 
 export default function MapaPage() {
   const { snap } = useSnap();
-  // GPS de los camiones: llega aparte del snapshot (una vez por snapshot nuevo).
+  // GPS de los camiones: llega aparte del snapshot, con su propio poll de 60 s.
   // Las rutas cuyo camión no tiene GPS se ven igual que siempre.
-  const gps = useGps(snap?.generated_at);
+  const gps = useGps();
   const { tokens: t } = useTheme();
   const { centroDe, colorDe: colorCentro, zonaMap } = useCentroColores();
 
@@ -56,6 +57,8 @@ export default function MapaPage() {
   const [soloAlta, setSoloAlta] = useState(false);
   const [soloEmerg, setSoloEmerg] = useState(false);
   const [verSinUbic, setVerSinUbic] = useState(false);
+  // Panel abierto en grande (id = chofer), en el modo Mapas.
+  const [ampliado, setAmpliado] = useState<string | null>(null);
 
   const datos = useMemo(() => puntosDeSnapshot(snap), [snap]);
   const ordenCentro = useMemo(() => new Map(zonaMap.map((m) => [m.centro, m.orden] as const)), [zonaMap]);
@@ -92,10 +95,19 @@ export default function MapaPage() {
   );
   // La ventana horaria sale de TODOS los tramos, no solo del visible: así el eje no
   // se mueve al cambiar de tab y las horas se comparan entre tramos.
+  // Entran también la salida y el último reporte de cada camión con GPS: la
+  // reproducción arranca y termina ahí, y el cursor tiene que caer dentro del eje.
   const ventana = useMemo(() => {
     const mins = visiblesTodos.map((p) => aMinutos(p.hora)).filter((m): m is number => m !== null);
+    for (const p of panelesTiempoTodos) {
+      const puntos = trazaDe(gps, p.patente)?.puntos;
+      const salida = inicioMovimiento(puntos);
+      const fin = finTraza(puntos);
+      if (salida !== null) mins.push(salida);
+      if (fin !== null) mins.push(fin);
+    }
     return ventanaDe(mins);
-  }, [visiblesTodos]);
+  }, [visiblesTodos, panelesTiempoTodos, gps]);
 
   // Cada modo cuenta lo suyo: los tabs del modo mapas hablan de lo que se puede
   // dibujar; los del tiempo, de todas las rutas con visitas registradas.
@@ -269,9 +281,12 @@ export default function MapaPage() {
                     </div>
                   )}
                 </div>
-                <div className="mapa-panel-kpis">
-                  <b className="tnum" style={{ color: semaforo(pan.pct, t) }}>{pan.pct}%</b>
-                  <span className="mapa-panel-det tnum">{miles(pan.realizados)}/{miles(pan.puntos.length)} · {miles(pan.litros)} L</span>
+                <div className="mapa-panel-acciones">
+                  <div className="mapa-panel-kpis">
+                    <b className="tnum" style={{ color: semaforo(pan.pct, t) }}>{pan.pct}%</b>
+                    <span className="mapa-panel-det tnum">{miles(pan.realizados)}/{miles(pan.puntos.length)} · {miles(pan.litros)} L</span>
+                  </div>
+                  <BotonAgrandar onClick={() => setAmpliado(pan.id)} />
                 </div>
               </div>
               <MapaLocales
@@ -283,6 +298,28 @@ export default function MapaPage() {
           ))}
         </div>
       )}
+
+      {/* En grande: otra instancia del mismo mapa, con zoom por rueda (en el panel
+          chico va apagado para no secuestrar el scroll de la página). */}
+      {modo === "mapas" && (() => {
+        const pan = paneles.find((p) => p.id === ampliado);
+        if (!pan) return null;
+        return (
+          <MapaModal
+            titulo={pan.titulo}
+            subtitulo={pan.subtitulo && (
+              <div className="mapa-panel-ruta" style={estiloRuta(colorCentro(pan.centro))}>{pan.subtitulo}</div>
+            )}
+            onClose={() => setAmpliado(null)}
+          >
+            <MapaLocales
+              puntos={pan.puntos} colorDe={pintar} alto="100%"
+              fitKey={`modal|${pan.id}`} scrollZoom
+              traza={trazaDe(gps, pan.patente)} patente={pan.patente}
+            />
+          </MapaModal>
+        );
+      })()}
     </div>
   );
 }

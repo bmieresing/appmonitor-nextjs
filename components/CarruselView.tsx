@@ -8,15 +8,15 @@ import MapaRecorrido from "./MapaRecorrido";
 import FullscreenToggle from "./FullscreenToggle";
 import TimelineRutas from "./TimelineRutas";
 import ControlesReproduccion from "./ControlesReproduccion";
-import { useReproduccion } from "./useReproduccion";
+import { useReproduccion, type Reproduccion } from "./useReproduccion";
+import MapaModal, { BotonAgrandar } from "./MapaModal";
 import Tank from "./Tank";
 import AvisoDesbalance from "./AvisoDesbalance";
 import PanelInconsistencias from "./PanelInconsistencias";
 import { useTheme } from "./ThemeProvider";
 import { useCentroColores, estiloRuta } from "./CentroColores";
-import { useSnap } from "./SnapshotContext";
 import { useGps } from "./useGps";
-import { trazaDe } from "@/lib/gps";
+import { finTraza, inicioMovimiento, trazaDe } from "@/lib/gps";
 import { breakdownDonutOption } from "@/lib/charts";
 import { miles } from "@/lib/format";
 import { avisoDeCarrusel, sinLocales } from "@/lib/cards";
@@ -193,22 +193,29 @@ function rutaDe(c: CarruselChofer | null, centroDe: (t: string | null | undefine
   };
 }
 
-function useRutaDelDia(c: CarruselChofer | null, centroDe: (t: string | null | undefined) => string | undefined): RutaDelDia {
+function useRutaDelDia(
+  c: CarruselChofer | null,
+  centroDe: (t: string | null | undefined) => string | undefined,
+  salida: number | null,
+  finGps: number | null,
+): RutaDelDia {
   return useMemo(() => {
     const ruta = rutaDe(c, centroDe);
     const puntos = ruta.puntos;
     const fila = filasTiempo([ruta])[0];
     // La ventana es la jornada de este chofer, no la de la flota: acá el eje es su
     // día (en la vista Mapa se comparte entre tramos para que no salte al cambiar
-    // de tab).
+    // de tab). Con GPS, la jornada va desde que sale el camión hasta su último reporte.
     const mins = puntos.map((p) => aMinutos(p.hora)).filter((m): m is number => m !== null);
+    if (salida !== null) mins.push(salida);
+    if (finGps !== null) mins.push(finGps);
     return {
       ruta,
       fila,
       ventana: ventanaDe(mins),
       hayHoras: puntos.some((p) => p.hora !== undefined) && fila.eventos.length > 0,
     };
-  }, [c, centroDe]);
+  }, [c, centroDe, salida, finGps]);
 }
 
 // Mapa de la ruta del chofer actual, con dos modos: estático (todos los locales a
@@ -217,15 +224,17 @@ function useRutaDelDia(c: CarruselChofer | null, centroDe: (t: string | null | u
 // vistas muestran exactamente los mismos locales. Si el camión del chofer tiene GPS,
 // los dos modos lo usan igual que en la vista Mapa: recorrido del día + posición
 // actual en el estático, camino real con el camión moviéndose en la reproducción.
-function MapaRuta({ c, rd, repro, minuto, onRepro, traza }: {
+function MapaRuta({ c, rd, repro, rep, onRepro, traza }: {
   c: CarruselChofer;
   rd: RutaDelDia;
   repro: boolean;
-  minuto: number;
+  rep: Reproduccion;
   onRepro: (v: boolean) => void;
   traza: TrazaGps | null;
 }) {
   const { tokens: t } = useTheme();
+  const minuto = rep.minuto;
+  const [grande, setGrande] = useState(false);
   const puntos = rd.ruta.puntos;
   const pintar = useMemo(() => (p: PuntoMapa) => estadoColor(p.estado, t), [t]);
   const conCoords = useMemo(() => puntos.filter(tieneCoords), [puntos]);
@@ -245,19 +254,54 @@ function MapaRuta({ c, rd, repro, minuto, onRepro, traza }: {
             {sinUbic > 0 && ` · ${sinUbic} sin coordenadas`}
           </span>
         </div>
-        {/* El toggle solo aparece si hay horas que reproducir. */}
-        {rd.hayHoras && (
-          <div className="modo-sw modo-sw-mini">
-            <button className={`modo-btn${!repro ? " active" : ""}`} onClick={() => onRepro(false)} title="Todos los locales a la vez">Mapa</button>
-            <button className={`modo-btn${repro ? " active" : ""}`} onClick={() => onRepro(true)} title="Reproducir el recorrido hora por hora">▶ Recorrido</button>
-          </div>
-        )}
+        <div className="mapa-panel-acciones">
+          {/* El toggle solo aparece si hay horas que reproducir. */}
+          {rd.hayHoras && (
+            <div className="modo-sw modo-sw-mini">
+              <button className={`modo-btn${!repro ? " active" : ""}`} onClick={() => onRepro(false)} title="Todos los locales a la vez">Mapa</button>
+              <button className={`modo-btn${repro ? " active" : ""}`} onClick={() => onRepro(true)} title="Reproducir el recorrido hora por hora">▶ Recorrido</button>
+            </div>
+          )}
+          {conCoords.length > 0 && <BotonAgrandar onClick={() => setGrande(true)} />}
+        </div>
       </div>
       {conCoords.length === 0
         ? <p className="muted">Ningún local de esta ruta tiene coordenadas cargadas.</p>
         : repro
           ? <MapaRecorrido rutaId={c.chofer} eventos={rd.fila.eventos} pendientes={pendientes} minuto={minuto} alto={430} traza={traza?.puntos} />
           : <MapaLocales puntos={conCoords} colorDe={pintar} alto={430} fitKey={c.chofer} scrollZoom={false} traza={traza} patente={c.patente} />}
+
+      {/* En grande, en el modo en que esté el mapa. El auto-avance del carrusel puede
+          cambiar de chofer con la ventana abierta: la ventana sigue al chofer actual. */}
+      {grande && conCoords.length > 0 && (
+        <MapaModal
+          titulo={c.chofer}
+          subtitulo={c.ruta && <div className="mapa-panel-ruta">{c.ruta}</div>}
+          onClose={() => setGrande(false)}
+          pie={rd.hayHoras ? (
+            <>
+              {repro && (
+                <ControlesReproduccion rep={rep}>
+                  <span className="chip">
+                    <b className="tnum">{miles(rd.fila.eventos.filter((e) => e.min <= minuto).length)}</b>
+                    &nbsp;de {miles(rd.fila.eventos.length)}
+                  </span>
+                </ControlesReproduccion>
+              )}
+              {/* La misma línea de tiempo de la card: en Recorrido es la barra del
+                  video (cursor + click para saltar). */}
+              <TimelineChofer rd={rd} titulo="Línea de tiempo de la ruta"
+                cursor={repro ? minuto : null} onSaltar={repro ? rep.irA : undefined} />
+            </>
+          ) : undefined}
+        >
+          {repro
+            ? <MapaRecorrido key={`r|${c.chofer}`} rutaId={`modal|${c.chofer}`} eventos={rd.fila.eventos} pendientes={pendientes}
+                minuto={minuto} alto="100%" traza={traza?.puntos} scrollZoom />
+            : <MapaLocales key={`m|${c.chofer}`} puntos={conCoords} colorDe={pintar} alto="100%" fitKey={`modal|${c.chofer}`}
+                scrollZoom traza={traza} patente={c.patente} />}
+        </MapaModal>
+      )}
     </div>
   );
 }
@@ -368,10 +412,9 @@ export default function CarruselView({ carrusel, global, initialChofer, inconsis
 }) {
   const { tokens: t } = useTheme();
   const { centroDe, colorDe } = useCentroColores();
-  // GPS de los camiones: una vez por snapshot nuevo, igual que en la vista Mapa.
-  // La pestaña Global no tiene patente (es la flota entera) y queda sin GPS.
-  const { snap } = useSnap();
-  const gps = useGps(snap?.generated_at);
+  // GPS de los camiones, con su propio poll (igual que en la vista Mapa). La
+  // pestaña Global no tiene patente (es la flota entera) y queda sin GPS.
+  const gps = useGps();
   // Las pestañas son un chofer cada una + Global al final: la lista se lee como la
   // nómina de choferes y la consolidación la cierra, como el total de una tabla.
   // El carrusel entra por el primer chofer, no por Global — la vista arranca donde
@@ -415,8 +458,16 @@ export default function CarruselView({ carrusel, global, initialChofer, inconsis
   // Hooks antes de cualquier return: `c` puede ser null si no hay datos.
   const c = slides.length > 0 ? slides[Math.min(idx, slides.length - 1)] : null;
   const esGlobal = c?.chofer === GLOBAL;
-  const rd = useRutaDelDia(c, centroDe);
-  const rep = useReproduccion(rd.fila.primera ?? 0, rd.fila.ultima ?? -1, repro && rd.hayHoras);
+  // El recorrido arranca cuando se mueve el camión (con GPS) y no en la primera
+  // visita: el trayecto desde donde durmió hasta el primer local también es ruta.
+  const traza = c ? trazaDe(gps, c.patente) : null;
+  const salida = inicioMovimiento(traza?.puntos);
+  const finGps = finTraza(traza?.puntos);
+  const rd = useRutaDelDia(c, centroDe, salida, finGps);
+  const arranque = Math.min(rd.fila.primera ?? Infinity, salida ?? Infinity);
+  // Termina en lo último que pasó: la última visita o el último reporte del camión.
+  const fin = Math.max(rd.fila.ultima ?? -1, finGps ?? -1);
+  const rep = useReproduccion(Number.isFinite(arranque) ? arranque : 0, fin, repro && rd.hayHoras);
 
   if (!c) return <p className="muted">Sin datos de recolecciones para hoy.</p>;
   const locOrden = (c.locales ?? []).slice().sort((a, b) => b.Litros - a.Litros); // desc
@@ -606,8 +657,8 @@ export default function CarruselView({ carrusel, global, initialChofer, inconsis
               Se lleva el doble de ancho que los rankings — es lo único de la vista
               que gana con cada píxel. */}
           <div className="lists-col lists-col-mapa">
-            <MapaRuta c={c} rd={rd} repro={repro && rd.hayHoras} minuto={rep.minuto} onRepro={setRepro}
-              traza={trazaDe(gps, c.patente)} />
+            <MapaRuta c={c} rd={rd} repro={repro && rd.hayHoras} rep={rep} onRepro={setRepro}
+              traza={traza} />
             {repro && rd.hayHoras && (
               <ControlesReproduccion rep={rep} compacto>
                 <span className="chip">

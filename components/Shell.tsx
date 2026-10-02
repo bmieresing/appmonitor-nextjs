@@ -9,6 +9,7 @@ import { usePathname, useRouter } from "next/navigation";
 import AppMonitorLogo from "@/assets/AppMonitorLogo.png";
 import { SnapshotProvider, useSnap } from "./SnapshotContext";
 import { CentroColoresProvider } from "./CentroColores";
+import ChipGps from "./ChipGps";
 import { useTheme } from "./ThemeProvider";
 import { createClient } from "@/lib/supabase/client";
 
@@ -56,6 +57,7 @@ function TopBar() {
       <span className={`chip${hayFalla ? " warn" : ""}`} title={snap?.falla ?? error ?? undefined}>
         <span className="dot" /> {error && !snap ? "sin datos" : hora}
       </span>
+      <ChipGps />
       <button className={`icon-btn${loading ? " loading" : ""}`} onClick={refetch} disabled={loading} title="Forzar recálculo: trae datos frescos del Lambda (~30s)" aria-label="Forzar recálculo">
         <span className="spin">↺</span>
       </button>

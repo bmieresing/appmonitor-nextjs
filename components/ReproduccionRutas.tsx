@@ -8,8 +8,10 @@
 // se ve la flota entera moviéndose junta, quién arrancó antes y quién quedó atrás
 // a la misma hora. La unidad sigue siendo la ruta —cada panel con su zoom— porque
 // un encuadre regional apila los locales en el mismo píxel.
-import React, { useCallback, useMemo, useRef } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import MapaRecorrido from "./MapaRecorrido";
+import MapaModal, { BotonAgrandar } from "./MapaModal";
+import TimelineRutas from "./TimelineRutas";
 import ControlesReproduccion from "./ControlesReproduccion";
 import { useReproduccion } from "./useReproduccion";
 import { estiloRuta } from "./CentroColores";
@@ -17,14 +19,18 @@ import { useTheme } from "./ThemeProvider";
 import { semaforo } from "@/lib/theme";
 import { miles } from "@/lib/format";
 import { hhmm, posicion, type FilaTiempo, type Ventana } from "@/lib/tiempo";
-import { trazaDe } from "@/lib/gps";
+import { finTraza, inicioMovimiento, trazaDe } from "@/lib/gps";
 import type { Gps } from "@/lib/types";
+
+// Fuera del componente: un `{}` por defecto en los props sería un objeto nuevo en
+// cada render y recalcularía el inicio en cada tick del reloj.
+const SIN_GPS: Gps = {};
 
 export default function ReproduccionRutas({
   filas,
   ventana,
   colorCentro,
-  gps = {},
+  gps = SIN_GPS,
 }: {
   filas: FilaTiempo[];
   ventana: Ventana;
@@ -34,17 +40,27 @@ export default function ReproduccionRutas({
 }) {
   const { tokens: t } = useTheme();
   const trackRef = useRef<HTMLDivElement>(null);
+  // Ruta abierta en grande. El reloj sigue siendo el de la grilla: la ventana
+  // muestra el mismo instante y lleva los mismos controles.
+  const [ampliado, setAmpliado] = useState<string | null>(null);
 
-  // La reproducción termina en la última visita registrada de todo el tramo, no en
-  // el borde de la ventana: después de eso no pasa nada más y solo se ve el cursor
-  // avanzando en vacío.
+  // La reproducción termina en lo último que pasó en el tramo —la última visita o
+  // el último reporte GPS, lo que sea más tarde—, no en el borde de la ventana:
+  // después no pasa nada más y solo se vería el cursor avanzando en vacío.
   const fin = useMemo(
-    () => filas.reduce((m, f) => Math.max(m, f.ultima ?? -1), -1),
-    [filas],
+    () => filas.reduce((m, f) => Math.max(m, f.ultima ?? -1, finTraza(trazaDe(gps, f.ruta.patente)?.puntos) ?? -1), -1),
+    [filas, gps],
   );
+  // Arranca cuando se mueve el primer camión: con GPS, su salida (lib/gps.ts); sin
+  // GPS, la primera visita, que es lo único que se sabe de esa ruta. Lo que ocurra
+  // antes cuenta, así que se toma el mínimo de las dos señales.
   const inicio = useMemo(
-    () => filas.reduce((m, f) => (f.primera !== null ? Math.min(m, f.primera) : m), ventana.hasta),
-    [filas, ventana.hasta],
+    () => filas.reduce((m, f) => {
+      const salida = inicioMovimiento(trazaDe(gps, f.ruta.patente)?.puntos);
+      const arranque = Math.min(f.primera ?? Infinity, salida ?? Infinity);
+      return Number.isFinite(arranque) ? Math.min(m, arranque) : m;
+    }, ventana.hasta),
+    [filas, ventana.hasta, gps],
   );
   const totalVisitas = useMemo(() => filas.reduce((s, f) => s + f.eventos.length, 0), [filas]);
   // Precalculado: el componente se re-renderiza en cada tick y esto no depende del
@@ -55,7 +71,8 @@ export default function ReproduccionRutas({
     [filas],
   );
 
-  // Arranca en la primera visita del tramo: esperar en vacío no aporta nada.
+  // Arranca cuando se mueve el primer camión del tramo (ver `inicio`): esperar en
+  // vacío no aporta nada.
   const rep = useReproduccion(inicio, fin);
   const { minuto, irA } = rep;
 
@@ -128,13 +145,16 @@ export default function ReproduccionRutas({
                     </div>
                   )}
                 </div>
-                <div className="mapa-panel-kpis">
-                  <b className="tnum" style={{ color: arrancada ? semaforo(pct, t) : "var(--muted)" }}>{pct}%</b>
-                  <span className="mapa-panel-det tnum">
-                    {arrancada
-                      ? `${miles(hechas.length)}/${miles(total)} · ${miles(litros)} L`
-                      : f.primera !== null ? `arranca ${hhmm(f.primera)}` : "sin registrar"}
-                  </span>
+                <div className="mapa-panel-acciones">
+                  <div className="mapa-panel-kpis">
+                    <b className="tnum" style={{ color: arrancada ? semaforo(pct, t) : "var(--muted)" }}>{pct}%</b>
+                    <span className="mapa-panel-det tnum">
+                      {arrancada
+                        ? `${miles(hechas.length)}/${miles(total)} · ${miles(litros)} L`
+                        : f.primera !== null ? `arranca ${hhmm(f.primera)}` : "sin registrar"}
+                    </span>
+                  </div>
+                  <BotonAgrandar onClick={() => setAmpliado(f.ruta.id)} />
                 </div>
               </div>
               <MapaRecorrido
@@ -149,6 +169,44 @@ export default function ReproduccionRutas({
           );
         })}
       </div>
+
+      {(() => {
+        const f = filas.find((x) => x.ruta.id === ampliado);
+        if (!f) return null;
+        const hechas = f.eventos.filter((e) => e.min <= minuto).length;
+        return (
+          <MapaModal
+            titulo={f.ruta.titulo}
+            subtitulo={f.ruta.subtitulo && (
+              <div className="mapa-panel-ruta" style={estiloRuta(colorCentro(f.ruta.centro))}>{f.ruta.subtitulo}</div>
+            )}
+            onClose={() => setAmpliado(null)}
+            pie={(
+              <>
+                <ControlesReproduccion rep={rep}>
+                  <span className="chip">
+                    <b className="tnum">{miles(hechas)}</b>&nbsp;de {miles(f.eventos.length)} visitas
+                  </span>
+                </ControlesReproduccion>
+                {/* La línea de tiempo de esta ruta como barra del video: cursor del
+                    reloj y click para saltar a una hora. Mismo eje que la grilla. */}
+                <TimelineRutas filas={[f]} ventana={ventana} colorCentro={colorCentro} sinEtiqueta
+                  cursor={minuto} onSaltar={irA} />
+              </>
+            )}
+          >
+            <MapaRecorrido
+              rutaId={`modal|${f.ruta.id}`}
+              eventos={f.eventos}
+              pendientes={pendientesDe.get(f.ruta.id) ?? []}
+              minuto={minuto}
+              alto="100%"
+              traza={trazaDe(gps, f.ruta.patente)?.puntos}
+              scrollZoom
+            />
+          </MapaModal>
+        );
+      })()}
     </div>
   );
 }

@@ -3,7 +3,7 @@
 // Solo datos reales: si faltan las env o no hay fila, lanza error (no hay demo).
 import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { Gps, Snapshot } from "./types";
+import type { LecturaGps, Snapshot } from "./types";
 
 let client: SupabaseClient | null = null;
 
@@ -54,18 +54,28 @@ export async function getSnapshotSiCambio(desde: string | null): Promise<Snapsho
 }
 
 /**
- * Las trazas GPS del día (columna `gps`, que el trigger separa del snapshot). Va
- * aparte de `data` para que el poll de 60 s de todas las vistas no las cargue:
- * solo la vista Mapa las pide. `{}` si la columna está vacía (sin credenciales de
- * Pegasus en el Lambda, o Lambda anterior al GPS).
+ * Puntos GPS del día (los trae el Lambda GPS cada minuto a monitor_gps_punto).
+ * Sin `desde`, el día completo; con `desde` (el `hasta` de la lectura anterior),
+ * solo lo recibido después — incluidos los rellenos que un camión manda con hora
+ * atrasada al recuperar la señal. Es una RPC y no un SELECT porque la Data API
+ * corta en 1000 filas (ver supabase/gps_schema.sql).
  */
-export async function getGps(): Promise<{ generated_at: string | null; gps: Gps }> {
+export async function getGps(desde: string | null): Promise<LecturaGps> {
+  const sb = getClient();
+  const valido = desde && !Number.isNaN(Date.parse(desde)) ? desde : null;
+  const { data, error } = await sb.rpc("gps_del_dia", { desde: valido });
+  if (error) throw new Error(`Supabase: ${error.message}`);
+  return data as LecturaGps;
+}
+
+/** Última respuesta exitosa del Lambda GPS (chip "GPS hh:mm" del encabezado). */
+export async function getGpsEstado(): Promise<{ actualizado: string | null }> {
   const sb = getClient();
   const { data, error } = await sb
-    .from("monitor_snapshot")
-    .select("gps, generated_at")
+    .from("monitor_gps_estado")
+    .select("actualizado")
     .eq("id", 1)
     .maybeSingle();
   if (error) throw new Error(`Supabase: ${error.message}`);
-  return { generated_at: data?.generated_at ?? null, gps: (data?.gps as Gps | null) ?? {} };
+  return { actualizado: data?.actualizado ?? null };
 }

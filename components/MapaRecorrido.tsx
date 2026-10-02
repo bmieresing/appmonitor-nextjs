@@ -22,7 +22,12 @@ import { estadoColor } from "@/lib/theme";
 import { tieneCoords, type PuntoMapa } from "@/lib/mapa";
 import type { EventoVisita } from "@/lib/tiempo";
 import type { PuntoGps } from "@/lib/types";
-import { CAMION_D, camionSvg, puntosHasta } from "@/lib/gps";
+import { CAMION_D, camionSvg, posicionEn, puntosHasta } from "@/lib/gps";
+import { VELOCIDADES } from "./useReproduccion";
+
+// Lo máximo que avanza el reloj en un tick (la velocidad más rápida). Un cambio
+// mayor no es reproducción sino un salto (click en la barra, volver al inicio).
+const PASO_MAX_MIN = Math.max(...VELOCIDADES.map((v) => v.min)) + 0.01;
 
 // Estado visual de cada local en un instante dado. Se guarda por marcador para no
 // volver a pintar el que no cambió.
@@ -35,6 +40,7 @@ export default function MapaRecorrido({
   minuto,
   alto = 520,
   traza,
+  scrollZoom = false,
 }: {
   /** Cambia ⇒ se reconstruyen los marcadores y se reencuadra. */
   rutaId: string;
@@ -47,6 +53,8 @@ export default function MapaRecorrido({
   alto?: number | string;
   /** Recorrido GPS del día del camión de la ruta (ordenado por hora), si tiene. */
   traza?: PuntoGps[] | null;
+  /** Zoom con la rueda: solo en la ventana grande (en la grilla secuestraría el scroll). */
+  scrollZoom?: boolean;
 }) {
   const { tokens: t } = useTheme();
   const ref = useRef<HTMLDivElement>(null);
@@ -55,7 +63,13 @@ export default function MapaRecorrido({
   const capaRef = useRef<L.LayerGroup | null>(null);
   const lineaRef = useRef<L.Polyline | null>(null);
   const camionRef = useRef<L.Marker | null>(null);
-  const gpsIdxRef = useRef(-1);   // puntos de la traza ya dibujados (para no repetir setLatLngs)
+  // Tramo entre el último reporte ocurrido y la posición interpolada del camión:
+  // va aparte para que en cada tick solo cambien dos puntos, y la línea larga se
+  // redibuje solo cuando entra un reporte nuevo.
+  const cabezaRef = useRef<L.Polyline | null>(null);
+  const gpsIdxRef = useRef(-1);   // reportes ya dibujados en la línea larga
+  const gpsTrazaRef = useRef<PuntoGps[] | null>(null);   // traza con la que se dibujó
+  const relojPrevRef = useRef<number | null>(null);      // para detectar saltos del reloj
   // marcador + su hora (null = pendiente) + la fase ya pintada
   const marcasRef = useRef<{ m: L.Marker; min: number | null; punto: PuntoMapa; fase: Fase | null }[]>([]);
   const [listo, setListo] = useState(false);
@@ -88,7 +102,7 @@ export default function MapaRecorrido({
       if (!vivo || !ref.current || mapRef.current) return;
       const Lf = (mod.default ?? mod) as typeof L;
       LRef.current = Lf;
-      const map = Lf.map(ref.current, { preferCanvas: true, scrollWheelZoom: false, zoomControl: true });
+      const map = Lf.map(ref.current, { preferCanvas: true, scrollWheelZoom: scrollZoom, zoomControl: true });
       map.fitBounds(CHILE_BOUNDS);
       Lf.tileLayer(TILE_URL, TILE_OPTS).addTo(map);
       mapRef.current = map;
@@ -114,9 +128,12 @@ export default function MapaRecorrido({
       mapRef.current = null;
       capaRef.current = null;
       lineaRef.current = null;
+      cabezaRef.current = null;
       camionRef.current = null;
       marcasRef.current = [];
     };
+    // scrollZoom se fija al montar (la ventana grande es otra instancia).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Marcadores y línea: se construyen una vez por ruta ───────────────────
@@ -127,15 +144,20 @@ export default function MapaRecorrido({
     capa.clearLayers();
     marcasRef.current = [];
     camionRef.current = null;
+    cabezaRef.current = null;
     gpsIdxRef.current = -1;
+    gpsTrazaRef.current = null;
+    relojPrevRef.current = null;
 
     // La línea va primero para quedar DEBAJO de los pines. Con GPS es el camino
     // real (continua); sin GPS, la punteada que solo une visitas en orden.
+    const estiloGps = { color: t.accent2, weight: 3.5, opacity: 0.8, lineJoin: "round" as const, lineCap: "round" as const };
     lineaRef.current = Lf.polyline([], conGps
-      ? { color: t.accent2, weight: 3.5, opacity: 0.8, lineJoin: "round", lineCap: "round" }
+      ? estiloGps
       : { color: t.accent2, weight: 3, opacity: 0.85, dashArray: "1 7", lineCap: "round" },
     ).addTo(capa);
     if (conGps) {
+      cabezaRef.current = Lf.polyline([], estiloGps).addTo(capa);
       // Nace invisible: se ubica y se muestra en el primer tick con un punto ≤ reloj.
       camionRef.current = Lf.marker([0, 0], {
         icon: Lf.divIcon({
@@ -190,8 +212,9 @@ export default function MapaRecorrido({
       temaRef.current = t;
       for (const marca of marcasRef.current) marca.fase = null;
       lineaRef.current?.setStyle({ color: t.accent2 });
+      cabezaRef.current?.setStyle({ color: t.accent2 });
       camionRef.current?.setIcon(Lf.divIcon({
-        className: "mapa-camion", html: camionSvg(t.accent2),
+        className: "mapa-camion desliza", html: camionSvg(t.accent2),
         iconSize: [CAMION_D, CAMION_D], iconAnchor: [CAMION_D / 2, CAMION_D / 2],
       }));
     }
@@ -239,18 +262,41 @@ export default function MapaRecorrido({
     }
 
     if (traza && traza.length > 0) {
-      // Camino real hasta el reloj. Solo se redibuja si entró un punto nuevo: el
-      // reloj avanza de a fracciones de minuto y la traza tiene un punto por minuto.
+      // Camino real hasta el reloj. La línea larga (todos los reportes ya
+      // ocurridos) se redibuja solo si entró un reporte nuevo o llegaron puntos
+      // (cada minuto, incluidos rellenos atrasados); en cada tick cambia solo la
+      // cabeza: del último reporte a la posición interpolada del camión.
       const n = puntosHasta(traza, minuto);
-      if (n !== gpsIdxRef.current) {
+      if (n !== gpsIdxRef.current || traza !== gpsTrazaRef.current) {
         gpsIdxRef.current = n;
+        gpsTrazaRef.current = traza;
         lineaRef.current?.setLatLngs(traza.slice(0, n).map((p) => [p[1], p[2]] as [number, number]));
-        const cam = camionRef.current;
-        if (cam) {
-          if (n > 0) { cam.setLatLng([traza[n - 1][1], traza[n - 1][2]]); cam.setOpacity(1); }
-          else cam.setOpacity(0);   // antes de su primer reporte del día
+      }
+      const pos = posicionEn(traza, minuto, n);
+      cabezaRef.current?.setLatLngs(pos && n > 0 ? [[traza[n - 1][1], traza[n - 1][2]], pos] : []);
+
+      const cam = camionRef.current;
+      if (cam) {
+        if (!pos) {
+          cam.setOpacity(0);   // antes de su primer reporte del día
+        } else {
+          // Entre tick y tick el camión se DESLIZA (transición CSS de un tick,
+          // clase `desliza`), así no salta los metros que avanza el reloj. Un salto
+          // del reloj —click en la barra, volver al inicio, primera vez— se aplica
+          // sin transición: si no, se lo vería cruzar el mapa.
+          const prev = relojPrevRef.current;
+          const salto = prev === null || minuto < prev || minuto - prev > PASO_MAX_MIN;
+          const el = cam.getElement();
+          if (salto) el?.classList.remove("desliza");
+          cam.setLatLng(pos);
+          cam.setOpacity(1);
+          if (salto && el) {
+            void el.offsetWidth;   // fuerza el reflow: la posición nueva entra sin animar
+            el.classList.add("desliza");
+          }
         }
       }
+      relojPrevRef.current = minuto;
     } else {
       lineaRef.current?.setLatLngs(
         visitados.slice(0, ultimo + 1).map((e) => [e.punto.lat as number, e.punto.lng as number] as [number, number]),
@@ -259,7 +305,7 @@ export default function MapaRecorrido({
     // `firma` va en las dependencias porque este efecto es el que pinta los iconos:
     // si el de arriba recreó los marcadores (nacen vacíos), este tiene que correr
     // detrás aunque el reloj no se haya movido. `traza` por los puntos nuevos que
-    // trae cada snapshot (cada 5 min).
+    // llegan cada minuto.
   }, [listo, minuto, visitados, firma, t, traza]);
 
   // ── Resize (fullscreen, cambio de grilla) ───────────────────────────────

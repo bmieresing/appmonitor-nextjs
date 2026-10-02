@@ -6,6 +6,7 @@
 // Si la Fullscreen API falla o se deniega, el modo kiosco igual se aplica.
 import React, { useCallback, useEffect, useState } from "react";
 import { useSnap } from "./SnapshotContext";
+import ChipGps from "./ChipGps";
 
 export default function FullscreenToggle() {
   const [on, setOn] = useState(false);
@@ -54,12 +55,14 @@ export default function FullscreenToggle() {
       >
         {on ? "⤡" : "⛶"}
       </button>
-      {/* Solo en kiosco: chip de hora + actualizar, que en modo normal viven en la barra superior. */}
+      {/* Solo en kiosco: chips de hora (snapshot y GPS) + actualizar, que en modo
+          normal viven en la barra superior. */}
       {on && (
         <>
           <span className={`chip${hayFalla ? " warn" : ""}`} title={snap?.falla ?? error ?? undefined}>
             <span className="dot" /> {error && !snap ? "sin datos" : hora}
           </span>
+          <ChipGps />
           <button className={`icon-btn${loading ? " loading" : ""}`} onClick={refetch} disabled={loading} title="Forzar recálculo: trae datos frescos del Lambda (~30s)" aria-label="Forzar recálculo">
             <span className="spin">↺</span>
           </button>

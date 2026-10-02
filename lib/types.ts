@@ -195,19 +195,26 @@ export interface ZonaMapRowLike {
   orden: number;
 }
 
-// GPS del día (Pegasus, ver lambda/pegasus.py). No viaja en el snapshot: el trigger
-// de Supabase lo separa a `monitor_snapshot.gps` y la vista Mapa lo pide aparte por
-// /api/gps. Un punto es [minutos desde 00:00 hora Chile, lat, lon].
+// GPS del día (Pegasus). No viaja en el snapshot: lo trae otro Lambda cada minuto a
+// la tabla monitor_gps_punto, y la vista Mapa y el Carrusel lo piden por /api/gps
+// (rpc gps_del_dia). Un punto es un reporte crudo del dispositivo:
+// [minutos desde 00:00 hora Chile, lat, lon].
 export type PuntoGps = [number, number, number];
 
 export interface TrazaGps {
-  vid: number;
-  puntos: PuntoGps[];   // un punto por minuto con posición, ordenados por hora
-  ultimo: PuntoGps;     // último reporte del día (= el último de `puntos`)
+  puntos: PuntoGps[];   // todos los reportes del día, ordenados por la hora del GPS
+  ultimo: PuntoGps;     // último reporte (= el último de `puntos`)
 }
 
-/** Clave: la patente tal como viene en `CarruselChofer.patente`. */
+/** Clave: la patente NORMALIZADA (mayúsculas, sin guiones). Buscar con trazaDe(). */
 export type Gps = Record<string, TrazaGps>;
+
+/** Respuesta de gps_del_dia: los puntos recibidos desde `desde`, por patente. */
+export interface LecturaGps {
+  dia: string;                  // YYYY-MM-DD hora Chile: al cambiar, se descarta lo cargado
+  hasta: string | null;         // marca para la próxima lectura (null = nada nuevo)
+  trazas: Record<string, PuntoGps[]>;
+}
 
 export interface Snapshot {
   generated_at: string;
