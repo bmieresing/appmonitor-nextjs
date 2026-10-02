@@ -12,6 +12,7 @@ export interface PuntoMapa extends DetalleLocal {
   chofer: string;
   ruta: string | null;
   tripulacion: string | null;   // se mapea a centro/color con useCentroColores()
+  patente: string | null;       // camión de la ruta: clave del GPS (useGps)
 }
 
 export interface DatosMapa {
@@ -34,7 +35,7 @@ export function puntosDeSnapshot(snap: Snapshot | null): DatosMapa {
   const todos: PuntoMapa[] = [];
   for (const c of snap.carrusel ?? []) {
     for (const d of c.detalle ?? []) {
-      todos.push({ ...d, chofer: c.chofer, ruta: c.ruta, tripulacion: c.tripulacion });
+      todos.push({ ...d, chofer: c.chofer, ruta: c.ruta, tripulacion: c.tripulacion, patente: c.patente ?? null });
     }
   }
   if (todos.length === 0) return vacio;
@@ -90,6 +91,7 @@ export interface Panel {
   titulo: string;              // chofer
   subtitulo: string | null;    // su ruta
   centro?: string;             // centro de acopio (para el color del recuadro)
+  patente: string | null;      // camión de la ruta: clave del GPS
   tramo: Tramo;                // tab en el que se muestra
   puntos: PuntoMapa[];
   realizados: number;
@@ -131,6 +133,7 @@ export function panelesPorChofer(
       id: chofer, titulo: chofer,
       subtitulo: ps[0]?.ruta ?? null,
       centro,
+      patente: ps[0]?.patente ?? null,
       tramo: tramoDe(centro, tramos, ps[0]?.lat),
       puntos: ps, realizados,
       litros: ps.reduce((s, p) => s + (p.litros || 0), 0),

@@ -17,15 +17,20 @@ import { useTheme } from "./ThemeProvider";
 import { semaforo } from "@/lib/theme";
 import { miles } from "@/lib/format";
 import { hhmm, posicion, type FilaTiempo, type Ventana } from "@/lib/tiempo";
+import { trazaDe } from "@/lib/gps";
+import type { Gps } from "@/lib/types";
 
 export default function ReproduccionRutas({
   filas,
   ventana,
   colorCentro,
+  gps = {},
 }: {
   filas: FilaTiempo[];
   ventana: Ventana;
   colorCentro: (centro: string | null | undefined) => string | undefined;
+  /** GPS de los camiones, por patente: la ruta que lo tenga muestra su camino real. */
+  gps?: Gps;
 }) {
   const { tokens: t } = useTheme();
   const trackRef = useRef<HTMLDivElement>(null);
@@ -138,6 +143,7 @@ export default function ReproduccionRutas({
                 pendientes={pendientesDe.get(f.ruta.id) ?? []}
                 minuto={minuto}
                 alto="100%"
+                traza={trazaDe(gps, f.ruta.patente)?.puntos}
               />
             </div>
           );

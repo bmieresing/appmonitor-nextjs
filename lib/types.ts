@@ -77,6 +77,9 @@ export interface CarruselChofer {
   chofer: string;
   ruta: string | null;
   tripulacion: string | null;   // tripulación del sheet; el front la mapea a centro/color
+  // Camión de la ruta (el que usó hoy; si no registró nada, el asignado). Es la
+  // clave para cruzar con el GPS (`Gps`). Ausente en snapshots anteriores al GPS.
+  patente?: string | null;
   litros_tot: number;
   exitosas: number;
   fallidas: number;
@@ -191,6 +194,20 @@ export interface ZonaMapRowLike {
   centro: string;
   orden: number;
 }
+
+// GPS del día (Pegasus, ver lambda/pegasus.py). No viaja en el snapshot: el trigger
+// de Supabase lo separa a `monitor_snapshot.gps` y la vista Mapa lo pide aparte por
+// /api/gps. Un punto es [minutos desde 00:00 hora Chile, lat, lon].
+export type PuntoGps = [number, number, number];
+
+export interface TrazaGps {
+  vid: number;
+  puntos: PuntoGps[];   // un punto por minuto con posición, ordenados por hora
+  ultimo: PuntoGps;     // último reporte del día (= el último de `puntos`)
+}
+
+/** Clave: la patente tal como viene en `CarruselChofer.patente`. */
+export type Gps = Record<string, TrazaGps>;
 
 export interface Snapshot {
   generated_at: string;

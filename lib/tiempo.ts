@@ -102,6 +102,7 @@ export interface RutaTiempo {
   titulo: string;              // chofer
   subtitulo: string | null;    // su ruta
   centro?: string;             // centro de acopio (color del recuadro)
+  patente?: string | null;     // camión de la ruta: clave del GPS (reproducción)
   pct: number;                 // avance de la ruta
   puntos: PuntoMapa[];
 }

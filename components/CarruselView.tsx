@@ -14,13 +14,16 @@ import AvisoDesbalance from "./AvisoDesbalance";
 import PanelInconsistencias from "./PanelInconsistencias";
 import { useTheme } from "./ThemeProvider";
 import { useCentroColores, estiloRuta } from "./CentroColores";
+import { useSnap } from "./SnapshotContext";
+import { useGps } from "./useGps";
+import { trazaDe } from "@/lib/gps";
 import { breakdownDonutOption } from "@/lib/charts";
 import { miles } from "@/lib/format";
 import { avisoDeCarrusel, sinLocales } from "@/lib/cards";
 import { estadoColor, prioridadColor, productColor, semaforo, semaforoOnDark } from "@/lib/theme";
 import { tieneCoords, type PuntoMapa } from "@/lib/mapa";
 import { aMinutos, filasTiempo, ventanaDe, type FilaTiempo, type RutaTiempo, type Ventana } from "@/lib/tiempo";
-import type { CarruselChofer, DetalleLocal, Inconsistencias, Zona } from "@/lib/types";
+import type { CarruselChofer, DetalleLocal, Inconsistencias, TrazaGps, Zona } from "@/lib/types";
 
 // Nombre de la pestaña consolidada. Es también el `chofer` de la tarjeta sintética,
 // así que sirve de clave para distinguirla del resto.
@@ -178,7 +181,7 @@ interface RutaDelDia {
 /** Tarjeta del carrusel → ruta de la línea de tiempo. En Global la tarjeta ya viene
  *  consolidada, así que sale una sola ruta con todas las visitas del día. */
 function rutaDe(c: CarruselChofer | null, centroDe: (t: string | null | undefined) => string | undefined): RutaTiempo {
-  const puntos: PuntoMapa[] = (c?.detalle ?? []).map((d) => ({ ...d, chofer: c!.chofer, ruta: c!.ruta, tripulacion: c!.tripulacion }));
+  const puntos: PuntoMapa[] = (c?.detalle ?? []).map((d) => ({ ...d, chofer: c!.chofer, ruta: c!.ruta, tripulacion: c!.tripulacion, patente: c!.patente ?? null }));
   const hechos = puntos.filter((p) => p.estado === "Realizado").length;
   return {
     id: c?.chofer ?? "",
@@ -211,13 +214,16 @@ function useRutaDelDia(c: CarruselChofer | null, centroDe: (t: string | null | u
 // Mapa de la ruta del chofer actual, con dos modos: estático (todos los locales a
 // la vez) y reproducción (el recorrido hora por hora, igual que en la vista Mapa).
 // Los puntos salen del mismo `detalle` que alimenta la tabla de abajo, así que las
-// vistas muestran exactamente los mismos locales.
-function MapaRuta({ c, rd, repro, minuto, onRepro }: {
+// vistas muestran exactamente los mismos locales. Si el camión del chofer tiene GPS,
+// los dos modos lo usan igual que en la vista Mapa: recorrido del día + posición
+// actual en el estático, camino real con el camión moviéndose en la reproducción.
+function MapaRuta({ c, rd, repro, minuto, onRepro, traza }: {
   c: CarruselChofer;
   rd: RutaDelDia;
   repro: boolean;
   minuto: number;
   onRepro: (v: boolean) => void;
+  traza: TrazaGps | null;
 }) {
   const { tokens: t } = useTheme();
   const puntos = rd.ruta.puntos;
@@ -250,8 +256,8 @@ function MapaRuta({ c, rd, repro, minuto, onRepro }: {
       {conCoords.length === 0
         ? <p className="muted">Ningún local de esta ruta tiene coordenadas cargadas.</p>
         : repro
-          ? <MapaRecorrido rutaId={c.chofer} eventos={rd.fila.eventos} pendientes={pendientes} minuto={minuto} alto={430} />
-          : <MapaLocales puntos={conCoords} colorDe={pintar} alto={430} fitKey={c.chofer} scrollZoom={false} />}
+          ? <MapaRecorrido rutaId={c.chofer} eventos={rd.fila.eventos} pendientes={pendientes} minuto={minuto} alto={430} traza={traza?.puntos} />
+          : <MapaLocales puntos={conCoords} colorDe={pintar} alto={430} fitKey={c.chofer} scrollZoom={false} traza={traza} patente={c.patente} />}
     </div>
   );
 }
@@ -362,6 +368,10 @@ export default function CarruselView({ carrusel, global, initialChofer, inconsis
 }) {
   const { tokens: t } = useTheme();
   const { centroDe, colorDe } = useCentroColores();
+  // GPS de los camiones: una vez por snapshot nuevo, igual que en la vista Mapa.
+  // La pestaña Global no tiene patente (es la flota entera) y queda sin GPS.
+  const { snap } = useSnap();
+  const gps = useGps(snap?.generated_at);
   // Las pestañas son un chofer cada una + Global al final: la lista se lee como la
   // nómina de choferes y la consolidación la cierra, como el total de una tabla.
   // El carrusel entra por el primer chofer, no por Global — la vista arranca donde
@@ -596,7 +606,8 @@ export default function CarruselView({ carrusel, global, initialChofer, inconsis
               Se lleva el doble de ancho que los rankings — es lo único de la vista
               que gana con cada píxel. */}
           <div className="lists-col lists-col-mapa">
-            <MapaRuta c={c} rd={rd} repro={repro && rd.hayHoras} minuto={rep.minuto} onRepro={setRepro} />
+            <MapaRuta c={c} rd={rd} repro={repro && rd.hayHoras} minuto={rep.minuto} onRepro={setRepro}
+              traza={trazaDe(gps, c.patente)} />
             {repro && rd.hayHoras && (
               <ControlesReproduccion rep={rep} compacto>
                 <span className="chip">

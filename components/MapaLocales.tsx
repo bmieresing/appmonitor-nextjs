@@ -14,6 +14,8 @@ import { useTheme } from "./ThemeProvider";
 import { miles } from "@/lib/format";
 import { estadoColor } from "@/lib/theme";
 import type { PuntoMapa } from "@/lib/mapa";
+import type { TrazaGps } from "@/lib/types";
+import { CAMION_D, camionSvg, minutoAhora, popupCamion, vigente } from "@/lib/gps";
 
 // Tiles de OpenStreetMap, sin key. Antes eran de CARTO, que desde el 23-09-2026
 // estampa "API KEY REQUIRED" en cada tile pedida sin key. OSM no tiene variante
@@ -94,6 +96,8 @@ export default function MapaLocales({
   seleccionado,
   scrollZoom = true,
   className,
+  traza,
+  patente,
 }: {
   puntos: PuntoMapa[];
   /** Color de relleno de cada punto; lo decide la vista (por estado o por centro). */
@@ -105,12 +109,16 @@ export default function MapaLocales({
   seleccionado?: number | null;
   scrollZoom?: boolean;
   className?: string;
+  /** GPS del camión de la ruta: se dibuja el recorrido del día y su posición actual. */
+  traza?: TrazaGps | null;
+  patente?: string | null;
 }) {
   const { tokens: t } = useTheme();
   const ref = useRef<HTMLDivElement>(null);
   const LRef = useRef<typeof L | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const capaRef = useRef<L.LayerGroup | null>(null);
+  const gpsRef = useRef<L.LayerGroup | null>(null);
   const marcasRef = useRef<Map<number, L.Marker>>(new Map());
   const [listo, setListo] = useState(false);
 
@@ -137,6 +145,9 @@ export default function MapaLocales({
       map.fitBounds(CHILE_BOUNDS);
       Lf.tileLayer(TILE_URL, TILE_OPTS).addTo(map);
       mapRef.current = map;
+      // Capa propia para el GPS: los pines se refrescan con cada poll del snapshot
+      // y la traza con cada snapshot nuevo; separadas, ninguna rehace a la otra.
+      gpsRef.current = Lf.layerGroup().addTo(map);
       capaRef.current = Lf.layerGroup().addTo(map);
       setListo(true);
     };
@@ -158,6 +169,7 @@ export default function MapaLocales({
       mapRef.current?.remove();
       mapRef.current = null;
       capaRef.current = null;
+      gpsRef.current = null;
       marcasRef.current.clear();
     };
     // scrollZoom se fija al montar: no cambia en vivo en ninguna vista.
@@ -206,22 +218,55 @@ export default function MapaLocales({
     }
   }, [listo, puntos, colorDe, t]);
 
+  // ── GPS: recorrido del día + posición actual ────────────────────────────
+  // La línea va en su propia capa, que se agregó al mapa ANTES que la de los pines:
+  // queda debajo. El popup del camión se arma al abrirlo, así "hace X min" se
+  // calcula en ese momento y no cuando llegó la traza.
+  useEffect(() => {
+    const Lf = LRef.current, capa = gpsRef.current;
+    if (!listo || !Lf || !capa) return;
+    capa.clearLayers();
+    if (!traza || traza.puntos.length === 0) return;
+    Lf.polyline(traza.puntos.map((p) => [p[1], p[2]] as [number, number]), {
+      color: t.accent2, weight: 3, opacity: 0.75, lineJoin: "round",
+    }).addTo(capa);
+    const ultimo = traza.ultimo;
+    const fresco = vigente(ultimo, minutoAhora());
+    Lf.marker([ultimo[1], ultimo[2]], {
+      icon: Lf.divIcon({
+        className: `mapa-camion${fresco ? "" : " viejo"}`,
+        html: camionSvg(t.accent2),
+        iconSize: [CAMION_D, CAMION_D], iconAnchor: [CAMION_D / 2, CAMION_D / 2], popupAnchor: [0, -CAMION_D / 2],
+      }),
+      zIndexOffset: 2000,   // sobre los pines: es lo que se viene a buscar
+    })
+      .bindPopup(() => popupCamion(patente ?? "", ultimo, minutoAhora()), { closeButton: true })
+      .addTo(capa);
+  }, [listo, traza, patente, t]);
+
   // ── Encuadre ────────────────────────────────────────────────────────────
   // Cada cambio de filtro tiene que acercar a lo que quedó visible. `puntos` se
   // lee del render actual pero NO dispara el efecto: reencuadrar en cada poll de
-  // 60 s le movería el mapa al operador debajo de las manos.
-  const estado = useRef({ puntos });
-  estado.current = { puntos };
+  // 60 s le movería el mapa al operador debajo de las manos. El recorrido GPS entra
+  // al encuadre: el camión puede andar fuera del área de sus locales.
+  const estado = useRef({ puntos, traza });
+  estado.current = { puntos, traza };
+  const tieneTraza = !!traza;
 
   useEffect(() => {
     const Lf = LRef.current, map = mapRef.current;
     if (!listo || !Lf || !map) return;
-    const conCoords = estado.current.puntos.filter((p) => p.lat != null && p.lng != null);
+    const conCoords: [number, number][] = estado.current.puntos
+      .filter((p) => p.lat != null && p.lng != null)
+      .map((p) => [p.lat as number, p.lng as number]);
+    for (const p of estado.current.traza?.puntos ?? []) conCoords.push([p[1], p[2]]);
     if (conCoords.length === 0) { map.fitBounds(CHILE_BOUNDS); return; }
-    const bounds = Lf.latLngBounds(conCoords.map((p) => [p.lat as number, p.lng as number]));
+    const bounds = Lf.latLngBounds(conCoords);
     // maxZoom: con un solo local, fitBounds se iría a zoom de manzana.
     map.fitBounds(bounds, { padding: [28, 28], maxZoom: 14 });
-  }, [listo, fitKey]);
+    // `tieneTraza` y no `traza`: el GPS llega después del primer encuadre y se
+    // reencuadra UNA vez al aparecer; las actualizaciones (cada 5 min) no mueven el mapa.
+  }, [listo, fitKey, tieneTraza]);
 
   // ── Selección desde la lista lateral ────────────────────────────────────
   useEffect(() => {

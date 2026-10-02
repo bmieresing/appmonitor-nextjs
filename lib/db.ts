@@ -3,7 +3,7 @@
 // Solo datos reales: si faltan las env o no hay fila, lanza error (no hay demo).
 import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { Snapshot } from "./types";
+import type { Gps, Snapshot } from "./types";
 
 let client: SupabaseClient | null = null;
 
@@ -51,4 +51,21 @@ export async function getSnapshotSiCambio(desde: string | null): Promise<Snapsho
   const { data, error } = await q.maybeSingle();
   if (error) throw new Error(`Supabase: ${error.message}`);
   return data ? (data.data as Snapshot) : null;
+}
+
+/**
+ * Las trazas GPS del día (columna `gps`, que el trigger separa del snapshot). Va
+ * aparte de `data` para que el poll de 60 s de todas las vistas no las cargue:
+ * solo la vista Mapa las pide. `{}` si la columna está vacía (sin credenciales de
+ * Pegasus en el Lambda, o Lambda anterior al GPS).
+ */
+export async function getGps(): Promise<{ generated_at: string | null; gps: Gps }> {
+  const sb = getClient();
+  const { data, error } = await sb
+    .from("monitor_snapshot")
+    .select("gps, generated_at")
+    .eq("id", 1)
+    .maybeSingle();
+  if (error) throw new Error(`Supabase: ${error.message}`);
+  return { generated_at: data?.generated_at ?? null, gps: (data?.gps as Gps | null) ?? {} };
 }

@@ -3,6 +3,10 @@
 // locales se van encendiendo en el orden en que la tripulación los registró, y una
 // línea va uniendo los ya visitados.
 //
+// Si el camión de la ruta tiene GPS (`traza`), la línea es su recorrido REAL hasta
+// el reloj y un camión marca dónde iba en ese minuto. Sin GPS queda la línea
+// punteada entre locales: no es el camino, solo el orden de las visitas.
+//
 // Es un Leaflet propio y no `MapaLocales` a propósito. Aquel recrea todos los
 // marcadores cada vez que cambia `puntos`, que es lo correcto para un mapa
 // estático que se refiltra de vez en cuando; acá el contenido cambia varias veces
@@ -17,6 +21,8 @@ import { CHILE_BOUNDS, PIN_H, PIN_W, TILE_OPTS, TILE_URL, pinSvg, popupHtml } fr
 import { estadoColor } from "@/lib/theme";
 import { tieneCoords, type PuntoMapa } from "@/lib/mapa";
 import type { EventoVisita } from "@/lib/tiempo";
+import type { PuntoGps } from "@/lib/types";
+import { CAMION_D, camionSvg, puntosHasta } from "@/lib/gps";
 
 // Estado visual de cada local en un instante dado. Se guarda por marcador para no
 // volver a pintar el que no cambió.
@@ -28,6 +34,7 @@ export default function MapaRecorrido({
   pendientes,
   minuto,
   alto = 520,
+  traza,
 }: {
   /** Cambia ⇒ se reconstruyen los marcadores y se reencuadra. */
   rutaId: string;
@@ -38,6 +45,8 @@ export default function MapaRecorrido({
   /** Reloj de la reproducción, en minutos desde medianoche. */
   minuto: number;
   alto?: number | string;
+  /** Recorrido GPS del día del camión de la ruta (ordenado por hora), si tiene. */
+  traza?: PuntoGps[] | null;
 }) {
   const { tokens: t } = useTheme();
   const ref = useRef<HTMLDivElement>(null);
@@ -45,23 +54,27 @@ export default function MapaRecorrido({
   const mapRef = useRef<L.Map | null>(null);
   const capaRef = useRef<L.LayerGroup | null>(null);
   const lineaRef = useRef<L.Polyline | null>(null);
+  const camionRef = useRef<L.Marker | null>(null);
+  const gpsIdxRef = useRef(-1);   // puntos de la traza ya dibujados (para no repetir setLatLngs)
   // marcador + su hora (null = pendiente) + la fase ya pintada
   const marcasRef = useRef<{ m: L.Marker; min: number | null; punto: PuntoMapa; fase: Fase | null }[]>([]);
   const [listo, setListo] = useState(false);
 
   const visitados = useMemo(() => eventos.filter((e) => tieneCoords(e.punto)), [eventos]);
   const ubicables = useMemo(() => pendientes.filter(tieneCoords), [pendientes]);
+  const conGps = !!traza && traza.length > 0;
   // Firma del contenido: el snapshot se repolla cada 60 s y devuelve arrays nuevos
   // aunque nada haya cambiado. Reconstruir por identidad tiraría los marcadores en
   // medio de la reproducción; con la firma solo se rehacen si aparece una visita
-  // nueva o cambia una hora.
+  // nueva o cambia una hora. Del GPS entra solo si HAY traza (cambia el estilo de la
+  // línea y si existe el camión); sus puntos nuevos los toma el efecto del reloj.
   const firma = useMemo(
-    () => [rutaId, visitados.map((e) => `${e.punto.id_local}@${e.min}`).join(","), ubicables.map((p) => p.id_local).join(",")].join("|"),
-    [rutaId, visitados, ubicables],
+    () => [rutaId, conGps, visitados.map((e) => `${e.punto.id_local}@${e.min}`).join(","), ubicables.map((p) => p.id_local).join(",")].join("|"),
+    [rutaId, conGps, visitados, ubicables],
   );
   // Datos frescos para efectos que NO deben dispararse cuando cambia la identidad.
-  const datos = useRef({ visitados, ubicables });
-  datos.current = { visitados, ubicables };
+  const datos = useRef({ visitados, ubicables, traza });
+  datos.current = { visitados, ubicables, traza };
 
   // ── Montaje ─────────────────────────────────────────────────────────────
   // Igual que MapaLocales: el mapa se crea recién cuando el contenedor entra en
@@ -101,6 +114,7 @@ export default function MapaRecorrido({
       mapRef.current = null;
       capaRef.current = null;
       lineaRef.current = null;
+      camionRef.current = null;
       marcasRef.current = [];
     };
   }, []);
@@ -112,15 +126,25 @@ export default function MapaRecorrido({
     const { visitados: vis, ubicables: ubi } = datos.current;
     capa.clearLayers();
     marcasRef.current = [];
+    camionRef.current = null;
+    gpsIdxRef.current = -1;
 
-    // La línea va primero para quedar DEBAJO de los pines.
-    lineaRef.current = Lf.polyline([], {
-      color: t.accent2,
-      weight: 3,
-      opacity: 0.85,
-      dashArray: "1 7",
-      lineCap: "round",
-    }).addTo(capa);
+    // La línea va primero para quedar DEBAJO de los pines. Con GPS es el camino
+    // real (continua); sin GPS, la punteada que solo une visitas en orden.
+    lineaRef.current = Lf.polyline([], conGps
+      ? { color: t.accent2, weight: 3.5, opacity: 0.8, lineJoin: "round", lineCap: "round" }
+      : { color: t.accent2, weight: 3, opacity: 0.85, dashArray: "1 7", lineCap: "round" },
+    ).addTo(capa);
+    if (conGps) {
+      // Nace invisible: se ubica y se muestra en el primer tick con un punto ≤ reloj.
+      camionRef.current = Lf.marker([0, 0], {
+        icon: Lf.divIcon({
+          className: "mapa-camion", html: camionSvg(t.accent2),
+          iconSize: [CAMION_D, CAMION_D], iconAnchor: [CAMION_D / 2, CAMION_D / 2],
+        }),
+        zIndexOffset: 2000, opacity: 0, interactive: false,
+      }).addTo(capa);
+    }
 
     const agregar = (punto: PuntoMapa, min: number | null) => {
       const m = Lf.marker([punto.lat as number, punto.lng as number], {
@@ -145,11 +169,14 @@ export default function MapaRecorrido({
   useEffect(() => {
     const Lf = LRef.current, map = mapRef.current;
     if (!listo || !Lf || !map) return;
-    const { visitados: vis, ubicables: ubi } = datos.current;
-    const todos = [...vis.map((e) => e.punto), ...ubi];
+    const { visitados: vis, ubicables: ubi, traza: tr } = datos.current;
+    const todos: [number, number][] = [...vis.map((e) => e.punto), ...ubi].map((p) => [p.lat as number, p.lng as number]);
+    // El recorrido GPS entra al encuadre: el camión anda también fuera de sus locales.
+    for (const p of tr ?? []) todos.push([p[1], p[2]]);
     if (todos.length === 0) { map.fitBounds(CHILE_BOUNDS); return; }
-    map.fitBounds(Lf.latLngBounds(todos.map((p) => [p.lat as number, p.lng as number])), { padding: [34, 34], maxZoom: 14 });
-  }, [listo, rutaId]);
+    map.fitBounds(Lf.latLngBounds(todos), { padding: [34, 34], maxZoom: 14 });
+    // `conGps`: el GPS llega después del primer encuadre; se reencuadra una vez al aparecer.
+  }, [listo, rutaId, conGps]);
 
   // ── Reloj: solo se repinta lo que cambió de fase ─────────────────────────
   const temaRef = useRef(t);
@@ -163,6 +190,10 @@ export default function MapaRecorrido({
       temaRef.current = t;
       for (const marca of marcasRef.current) marca.fase = null;
       lineaRef.current?.setStyle({ color: t.accent2 });
+      camionRef.current?.setIcon(Lf.divIcon({
+        className: "mapa-camion", html: camionSvg(t.accent2),
+        iconSize: [CAMION_D, CAMION_D], iconAnchor: [CAMION_D / 2, CAMION_D / 2],
+      }));
     }
 
     // La visita más reciente ocurrida hasta el reloj: es la que va resaltada.
@@ -207,13 +238,29 @@ export default function MapaRecorrido({
       }
     }
 
-    lineaRef.current?.setLatLngs(
-      visitados.slice(0, ultimo + 1).map((e) => [e.punto.lat as number, e.punto.lng as number] as [number, number]),
-    );
+    if (traza && traza.length > 0) {
+      // Camino real hasta el reloj. Solo se redibuja si entró un punto nuevo: el
+      // reloj avanza de a fracciones de minuto y la traza tiene un punto por minuto.
+      const n = puntosHasta(traza, minuto);
+      if (n !== gpsIdxRef.current) {
+        gpsIdxRef.current = n;
+        lineaRef.current?.setLatLngs(traza.slice(0, n).map((p) => [p[1], p[2]] as [number, number]));
+        const cam = camionRef.current;
+        if (cam) {
+          if (n > 0) { cam.setLatLng([traza[n - 1][1], traza[n - 1][2]]); cam.setOpacity(1); }
+          else cam.setOpacity(0);   // antes de su primer reporte del día
+        }
+      }
+    } else {
+      lineaRef.current?.setLatLngs(
+        visitados.slice(0, ultimo + 1).map((e) => [e.punto.lat as number, e.punto.lng as number] as [number, number]),
+      );
+    }
     // `firma` va en las dependencias porque este efecto es el que pinta los iconos:
     // si el de arriba recreó los marcadores (nacen vacíos), este tiene que correr
-    // detrás aunque el reloj no se haya movido.
-  }, [listo, minuto, visitados, firma, t]);
+    // detrás aunque el reloj no se haya movido. `traza` por los puntos nuevos que
+    // trae cada snapshot (cada 5 min).
+  }, [listo, minuto, visitados, firma, t, traza]);
 
   // ── Resize (fullscreen, cambio de grilla) ───────────────────────────────
   useEffect(() => {

@@ -20,6 +20,8 @@ import FullscreenToggle from "@/components/FullscreenToggle";
 import TimelineRutas from "@/components/TimelineRutas";
 import ReproduccionRutas from "@/components/ReproduccionRutas";
 import { useSnap } from "@/components/SnapshotContext";
+import { useGps } from "@/components/useGps";
+import { trazaDe } from "@/lib/gps";
 import { useCentroColores, estiloRuta } from "@/components/CentroColores";
 import { useTheme } from "@/components/ThemeProvider";
 import {
@@ -42,6 +44,9 @@ const MODOS: { id: Modo; label: string; icono: string; title: string }[] = [
 
 export default function MapaPage() {
   const { snap } = useSnap();
+  // GPS de los camiones: llega aparte del snapshot (una vez por snapshot nuevo).
+  // Las rutas cuyo camión no tiene GPS se ven igual que siempre.
+  const gps = useGps(snap?.generated_at);
   const { tokens: t } = useTheme();
   const { centroDe, colorDe: colorCentro, zonaMap } = useCentroColores();
 
@@ -247,7 +252,7 @@ export default function MapaPage() {
         filas.length === 0 ? (
           <p className="muted">Ninguna ruta de {tab} coincide con los filtros.</p>
         ) : (
-          <ReproduccionRutas filas={filas} ventana={ventana} colorCentro={colorCentro} />
+          <ReproduccionRutas filas={filas} ventana={ventana} colorCentro={colorCentro} gps={gps} />
         )
       ) : paneles.length === 0 ? (
         <p className="muted">Ninguna ruta de {tab} coincide con los filtros.</p>
@@ -272,6 +277,7 @@ export default function MapaPage() {
               <MapaLocales
                 puntos={pan.puntos} colorDe={pintar} alto="100%"
                 fitKey={`${pan.id}|${fit}`} scrollZoom={false}
+                traza={trazaDe(gps, pan.patente)} patente={pan.patente}
               />
             </div>
           ))}
