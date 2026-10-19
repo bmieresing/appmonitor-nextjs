@@ -20,11 +20,39 @@ export default function ReactECharts({
   const chart = useRef<echarts.ECharts | null>(null);
 
   useEffect(() => {
-    if (!ref.current) return;
-    chart.current = echarts.init(ref.current, undefined, { renderer: "canvas" });
+    const el = ref.current;
+    if (!el) return;
+    chart.current = echarts.init(el, undefined, { renderer: "canvas" });
     const ro = new ResizeObserver(() => chart.current?.resize());
-    ro.observe(ref.current);
+    ro.observe(el);
+
+    // Corrección por el zoom del tablero (components/Zoom.tsx, `zoom` de CSS sobre
+    // <html>): ECharts ubica el mouse con offsetX/offsetY, que el navegador entrega
+    // en píxeles de pantalla, mientras el canvas dibuja en píxeles CSS del gráfico.
+    // Con zoom ≠ 100 % el tooltip y el resaltado caían corridos hacia arriba a la
+    // izquierda. Se recalcula la posición desde clientX y el rect —que están en el
+    // mismo espacio— y se pasa a píxeles del gráfico con la escala real del
+    // contenedor. Va en captura sobre el contenedor, antes que el listener de
+    // ECharts (que vive en un div hijo).
+    const corregir = (e: Event) => {
+      const me = e as MouseEvent;
+      const r = el.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      const sx = el.offsetWidth / r.width;
+      const sy = el.offsetHeight / r.height;
+      if (Math.abs(sx - 1) < 0.001 && Math.abs(sy - 1) < 0.001) return;
+      const x = (me.clientX - r.left) * sx;
+      const y = (me.clientY - r.top) * sy;
+      for (const [k, v] of [["offsetX", x], ["offsetY", y], ["layerX", x], ["layerY", y]] as const) {
+        Object.defineProperty(me, k, { value: v, configurable: true });
+      }
+    };
+    const EVENTOS = ["pointermove", "pointerdown", "pointerup", "mousemove", "mousedown", "mouseup",
+      "click", "dblclick", "contextmenu", "mouseout", "wheel"];
+    EVENTOS.forEach((t) => el.addEventListener(t, corregir, true));
+
     return () => {
+      EVENTOS.forEach((t) => el.removeEventListener(t, corregir, true));
       ro.disconnect();
       chart.current?.dispose();
       chart.current = null;
