@@ -101,6 +101,39 @@ button, input, select, textarea, optgroup { font-family: inherit; }
 
 .content { padding: 22px; }
 
+/* Control de zoom del tablero (ver components/Zoom.tsx): − 90% + en una sola píldora. */
+.zoom-ctl { display: inline-flex; align-items: center; height: 36px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); overflow: hidden; }
+.zoom-ctl button {
+  height: 100%; padding: 0 10px; border: 0; background: transparent; cursor: pointer;
+  color: var(--text-2); font-size: 16px; font-weight: 700; transition: color .14s, background .14s;
+}
+.zoom-ctl button:hover:not(:disabled) { color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.zoom-ctl button:disabled { opacity: .35; cursor: default; }
+.zoom-ctl .zoom-pct { min-width: 50px; padding: 0 4px; font-size: 12.5px; border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+
+/* Menú de usuario (components/MenuUsuario.tsx): desplegable anclado a la derecha. */
+.menu-usr { position: relative; }
+.menu-usr-pop {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 40;
+  min-width: 230px; padding: 6px; display: flex; flex-direction: column; gap: 2px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-lg);
+}
+.menu-usr-fila {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 6px 6px 8px 10px; margin-bottom: 4px; border-bottom: 1px solid var(--border);
+  font-size: 13.5px; font-weight: 600; color: var(--text);
+}
+.menu-usr-item {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 9px 10px; border: 0; border-radius: 8px; background: transparent;
+  color: var(--text); font-size: 13.5px; font-weight: 600; text-align: left; cursor: pointer;
+}
+.menu-usr-item:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+a.menu-usr-item { text-decoration: none; }
+.menu-usr-item.active { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.menu-usr-item .ic { width: 18px; text-align: center; }
+.menu-usr-item.peligro:hover { color: var(--critical); background: color-mix(in srgb, var(--critical) 10%, transparent); }
+
 /* Estado activo de un botón-ícono (p. ej. pantalla completa encendida). */
 .icon-btn.active {
   color: var(--accent);
@@ -158,7 +191,9 @@ body.kiosk .toolbar { margin-bottom: 10px; }
 .mitad-sw-btn.on { transform: scale(1.05); box-shadow: 0 3px 12px rgba(0, 0, 0, .18); }
 
 /* ── Fila KPI ───────────────────────────────────────────────── */
-.kpi-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; }
+/* El margen inferior separa la fila de la grilla de cards ahora que Santiago y
+   Regiones no llevan título "Choferes"; donde sí hay título, colapsa con el suyo. */
+.kpi-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; margin-bottom: 16px; }
 @media (max-width: 1280px) { .kpi-grid { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 640px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
 .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 14px 14px 12px; display: flex; flex-direction: column; }
@@ -569,6 +604,7 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
 
 /* Estado vacío / error (sin datos reales) */
 .estado { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 8px; min-height: 60vh; padding: 24px; }
+.estado-pantalla { min-height: 100vh; }
 .estado-ic { font-size: 42px; }
 .estado-tit { font-size: 18px; font-weight: 800; letter-spacing: -0.3px; }
 

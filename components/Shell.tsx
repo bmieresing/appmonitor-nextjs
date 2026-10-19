@@ -1,17 +1,17 @@
 "use client";
 // Cáscara profesional: barra superior con marca + navegación horizontal +
-// indicador de última actualización, refresh, toggle de tema y logout. La
+// indicador de última actualización, refresh y menú de usuario (tema, zoom, logout). La
 // navegación vive arriba (no en un sidebar) para no robar ancho al dashboard.
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import AppMonitorLogo from "@/assets/AppMonitorLogo.png";
 import { SnapshotProvider, useSnap } from "./SnapshotContext";
 import { CentroColoresProvider } from "./CentroColores";
 import ChipGps from "./ChipGps";
-import { useTheme } from "./ThemeProvider";
-import { createClient } from "@/lib/supabase/client";
+import MenuUsuario from "./MenuUsuario";
+import { ZoomProvider, useZoom } from "./Zoom";
 
 const VISTAS: [string, string, string][] = [
   ["Global", "/global", "🌐"],
@@ -23,20 +23,12 @@ const VISTAS: [string, string, string][] = [
   ["Estadisticas", "/estadisticas", "📊"],
   ["Carrusel", "/carrusel", "🎠"],
   ["Carrusel Zonas", "/carrusel-zonas", "🔄"],
-  ["Parametros", "/parametros", "⚙️"],
+  // Parámetros no va en la nav: vive en el menú de usuario (MenuUsuario).
 ];
 
 function TopBar() {
   const pathname = usePathname();
   const { snap, error, loading, refetch } = useSnap();
-  const { mode, toggle } = useTheme();
-  const router = useRouter();
-
-  async function logout() {
-    await createClient().auth.signOut();
-    router.push("/login");
-    router.refresh();
-  }
 
   const hora = snap?.hora_ciclo
     ? new Date(snap.hora_ciclo).toLocaleString("es-CL", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
@@ -61,8 +53,7 @@ function TopBar() {
       <button className={`icon-btn${loading ? " loading" : ""}`} onClick={refetch} disabled={loading} title="Forzar recálculo: trae datos frescos del Lambda (~30s)" aria-label="Forzar recálculo">
         <span className="spin">↺</span>
       </button>
-      <button className="icon-btn" onClick={toggle} title="Cambiar tema" aria-label="Cambiar tema">{mode === "light" ? "🌙" : "☀️"}</button>
-      <button className="icon-btn" onClick={logout} title="Cerrar sesión" aria-label="Cerrar sesión">⏻</button>
+      <MenuUsuario />
     </header>
   );
 }
@@ -92,14 +83,30 @@ function Content({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Mientras llegan el snapshot y el zoom del usuario se muestra solo "Cargando…",
+// sin barra: si no, la barra aparece a un tamaño y salta al otro cuando llega el
+// zoom. Con error sí va la barra (para poder reintentar o cerrar sesión).
+function Marco({ children }: { children: React.ReactNode }) {
+  const { snap, error } = useSnap();
+  const { listo } = useZoom();
+  if (!listo || (!snap && !error)) {
+    return <div className="estado estado-pantalla"><p className="muted">Cargando…</p></div>;
+  }
+  return (
+    <div className="app">
+      <TopBar />
+      <Content>{children}</Content>
+    </div>
+  );
+}
+
 export default function Shell({ children }: { children: React.ReactNode }) {
   return (
     <SnapshotProvider>
       <CentroColoresProvider>
-        <div className="app">
-          <TopBar />
-          <Content>{children}</Content>
-        </div>
+        <ZoomProvider>
+          <Marco>{children}</Marco>
+        </ZoomProvider>
       </CentroColoresProvider>
     </SnapshotProvider>
   );

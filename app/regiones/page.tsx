@@ -72,7 +72,6 @@ function RegionesInner() {
     <div>
       <FiltroCentro centros={centrosPresentes} valor={centro} onChange={setFiltro} colorDe={colorDe} />
       <KpiRow zona={zonaReg} />
-      <div className="section-title">Choferes</div>
       <MarcoMitades opciones={opciones} activa={mitad} onCambiar={setMitad}>
         <GrillaChoferes cards={cards} vacio="Ningún chofer coincide con los filtros." />
       </MarcoMitades>

@@ -44,7 +44,6 @@ export default function RegionesMitades({ zona, mitadMs, pausado = false }:
   return (
     <div>
       <KpiRow zona={zona} />
-      <div className="section-title">Choferes</div>
       <MarcoMitades activa={mitad} onCambiar={(id) => setIdx(MITADES.indexOf(id as Mitad))}
         opciones={MITADES.map((m) => ({ id: m, label: m, icono: ICONO_MITAD[m], color: colorMitad(m, t), n: grupos[m].length }))}>
         <GrillaChoferes cards={cards} vacio={`Sin choferes en ${mitad}.`} />

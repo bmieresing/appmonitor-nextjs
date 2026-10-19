@@ -12,6 +12,8 @@ import { miles } from "@/lib/format";
 import { semaforo } from "@/lib/theme";
 import type { Zona, Centro } from "@/lib/types";
 
+const SANTIAGO_POR_DEFECTO = "#7b52ab";
+
 function CardCentro({ c }: { c: Centro }) {
   const { tokens: t } = useTheme();
   const { colorDe } = useCentroColores();
@@ -80,6 +82,17 @@ export default function ZoneView({ zona, esGlobal }:
   const [vista, setVista] = useState<"centros" | "choferes">("centros");
   const verChoferes = esGlobal && vista === "choferes";
 
+  // Color del marco de Santiago: el del centro de sus choferes (el mismo morado de
+  // los chips de ruta), editable en Parámetros. Sin color cargado, morado fijo.
+  const { centroDe, colorDe } = useCentroColores();
+  const colorSantiago = useMemo(() => {
+    for (const c of zona.cards) {
+      const col = colorDe(centroDe(c.tripulacion));
+      if (col) return col;
+    }
+    return SANTIAGO_POR_DEFECTO;
+  }, [zona.cards, centroDe, colorDe]);
+
   return (
     <div>
       <KpiRow zona={zona} />
@@ -97,8 +110,15 @@ export default function ZoneView({ zona, esGlobal }:
             </button>
           </div>
         </div>
-      ) : <div className="section-title">Choferes</div>}
-      {esGlobal && !verChoferes ? (
+      ) : null}
+      {!esGlobal ? (
+        // Santiago con la misma card teñida que las mitades de Regiones, pero sin
+        // switch (no hay nada que alternar), con el color del centro de sus choferes.
+        <div className="card card-pad mitad-card"
+          style={{ borderColor: colorSantiago, background: `color-mix(in srgb, ${colorSantiago} 7%, var(--surface))` }}>
+          <GrillaChoferes cards={zona.cards} />
+        </div>
+      ) : !verChoferes ? (
         zona.centros.length === 0 ? <p className="muted">Sin datos de centros de acopio.</p> : (
           <>
             {activos.length === 0
