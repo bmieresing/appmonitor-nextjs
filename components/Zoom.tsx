@@ -29,7 +29,7 @@ export function ZoomProvider({ children }: { children: React.ReactNode }) {
   const [kiosco, setKiosco] = useState(false);
   const [listo, setListo] = useState(false);
   const userId = useRef<string | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // Preferencias del usuario logueado. Si fallan, queda el default: nunca se
   // bloquea la app por esto.
