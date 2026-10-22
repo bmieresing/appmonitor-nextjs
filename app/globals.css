@@ -172,6 +172,8 @@ body.pantalla .kpi-value { font-size: 19px; }
 /* Nombres de chofer/centro: más grandes y no más gruesos (ya van en 700); a 720p
    escalado, una letra más gruesa empasta en vez de leerse mejor. */
 body.pantalla .entity-name { font-size: 17px; }
+/* Con el control remoto hay que ver qué botón de la barra tiene el foco */
+body.pantalla .icon-btn:focus-visible, body.pantalla .chip-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* ── Cards ──────────────────────────────────────────────────── */
 .card {

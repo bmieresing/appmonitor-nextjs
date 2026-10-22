@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import CarruselZonas from "@/components/CarruselZonas";
 import ChipGps from "@/components/ChipGps";
 import { useSnap } from "@/components/SnapshotContext";
+import { useTheme } from "@/components/ThemeProvider";
 
 const ZOOM_POR_DEFECTO = 0.75;
 const ZOOM_MIN = 0.5;
@@ -33,6 +34,9 @@ function leerZoom(): number {
 
 export default function PantallaPage() {
   const { snap, error } = useSnap();
+  // Claro/oscuro: acá no está el menú de usuario, que es donde vive el cambio de
+  // tema. ThemeProvider ya lo guarda en localStorage, así que la tele lo recuerda.
+  const { mode, toggle } = useTheme();
   const [zoom, setZoom] = useState<number | null>(null);
 
   // Lo lee recién en el cliente (localStorage no existe en el render del servidor)
@@ -85,6 +89,10 @@ export default function PantallaPage() {
               title={`Zoom de la pantalla (clic: volver a ${Math.round(ZOOM_POR_DEFECTO * 100)} %)`}>{Math.round(actual * 100)}%</button>
             <button onClick={() => cambiarZoom(actual + ZOOM_PASO)} disabled={actual >= ZOOM_MAX} title="Acercar" aria-label="Acercar">+</button>
           </span>
+          <button className="icon-btn" onClick={toggle}
+            title={mode === "light" ? "Modo oscuro" : "Modo claro"} aria-label={mode === "light" ? "Modo oscuro" : "Modo claro"}>
+            {mode === "light" ? "🌙" : "☀️"}
+          </button>
         </>
       }
     />
