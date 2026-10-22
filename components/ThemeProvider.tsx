@@ -17,8 +17,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const guardado = (typeof localStorage !== "undefined" && localStorage.getItem("monitor-theme")) as Mode | null;
-    const inicial: Mode = guardado ?? (window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-    setMode(inicial);
+    // /pantalla (tele de la oficina) arranca en claro: el sistema de la tele pide
+    // oscuro y ahí nadie elige tema. El botón de la página igual lo cambia y lo guarda.
+    const porDefecto: Mode = window.location.pathname === "/pantalla" ? "light"
+      : window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    setMode(guardado ?? porDefecto);
   }, []);
 
   useEffect(() => {
