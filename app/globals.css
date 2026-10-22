@@ -169,6 +169,9 @@ body.kiosk .toolbar { margin-bottom: 10px; }
 body.pantalla .content { zoom: var(--pantalla-zoom, 0.75); } /* lo ajusta el − % + de /pantalla */
 body.pantalla .kpi-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 body.pantalla .kpi-value { font-size: 19px; }
+/* Nombres de chofer/centro: más grandes y no más gruesos (ya van en 700); a 720p
+   escalado, una letra más gruesa empasta en vez de leerse mejor. */
+body.pantalla .entity-name { font-size: 17px; }
 
 /* ── Cards ──────────────────────────────────────────────────── */
 .card {
