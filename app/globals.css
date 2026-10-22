@@ -161,6 +161,12 @@ a.menu-usr-item { text-decoration: none; }
 body.kiosk .topbar { display: none; }
 body.kiosk .content { padding: 10px 16px 16px; }
 body.kiosk .toolbar { margin-bottom: 10px; }
+/* /pantalla (tele de la oficina): la página recibe ~896 px (70% de 1280×720). Se achica
+   el contenido y se fuerzan los 6 KPI en una fila, que si no pasan a 3 columnas por el
+   max-width: 1280px de .kpi-grid. Solo aplica en /pantalla. */
+body.pantalla .content { zoom: 0.75; }
+body.pantalla .kpi-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+body.pantalla .kpi-value { font-size: 19px; }
 
 /* ── Cards ──────────────────────────────────────────────────── */
 .card {

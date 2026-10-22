@@ -3,15 +3,15 @@
 // - Páginas sin sesión → redirect a /login.
 // - /api/* sin sesión → 401 JSON (así nadie lee el snapshot sin loguearse).
 // - Con sesión en /login → redirect a la vista principal.
-// - Excepción: desde la IP de la oficina (OFFICE_IPS) el Carrusel Zonas se ve sin
-//   sesión, para la tele de la oficina (app android-tv). Solo esa página y las APIs
-//   que consume; el resto pide login igual.
+// - Excepción: desde la IP de la oficina (OFFICE_IPS) /pantalla se ve sin sesión,
+//   para la tele de la oficina (Monitor Android, android-tv/). Solo esa página y las
+//   APIs que consume; el resto pide login igual.
 // Los usuarios se crean a mano en el panel de Supabase (Authentication → Users);
 // no hay página de registro.
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLICO_OFICINA = ["/carrusel-zonas", "/api/snapshot", "/api/gps/estado"];
+const PUBLICO_OFICINA = ["/pantalla", "/api/snapshot", "/api/gps/estado"];
 
 // IP pública del cliente. Vercel pisa estos headers con la IP real, así que el
 // cliente no puede falsificarlos.
