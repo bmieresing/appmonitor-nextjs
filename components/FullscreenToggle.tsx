@@ -42,6 +42,21 @@ export default function FullscreenToggle() {
     }
   }, [apply]);
 
+  // En pantalla ningún enlace sale del carrusel (chofer → /carrusel, centro → /regiones),
+  // ni con mouse ni con el control remoto. Captura en document: corre antes que el
+  // handler de <Link>, que React escucha en la raíz.
+  useEffect(() => {
+    if (!pantalla) return;
+    const bloquear = (e: MouseEvent) => {
+      if ((e.target as Element).closest("a")) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    document.addEventListener("click", bloquear, true);
+    return () => document.removeEventListener("click", bloquear, true);
+  }, [pantalla]);
+
   // Sincroniza el estado cuando el usuario sale del fullscreen con ESC/F11, y
   // limpia la clase al desmontar (p. ej. al navegar a otra vista).
   useEffect(() => {
