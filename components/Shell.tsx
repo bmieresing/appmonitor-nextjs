@@ -9,7 +9,9 @@ import { usePathname } from "next/navigation";
 import AppMonitorLogo from "@/assets/AppMonitorLogo.png";
 import { SnapshotProvider, useSnap } from "./SnapshotContext";
 import { CentroColoresProvider } from "./CentroColores";
+import { DiaProvider, useDia } from "./DiaContext";
 import ChipGps from "./ChipGps";
+import SelectorDia from "./SelectorDia";
 import MenuUsuario from "./MenuUsuario";
 import { ZoomProvider, useZoom } from "./Zoom";
 
@@ -29,6 +31,7 @@ const VISTAS: [string, string, string][] = [
 function TopBar() {
   const pathname = usePathname();
   const { snap, error, loading, refetch } = useSnap();
+  const { dia } = useDia();
 
   const hora = snap?.hora_ciclo
     ? new Date(snap.hora_ciclo).toLocaleString("es-CL", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
@@ -46,13 +49,24 @@ function TopBar() {
           </Link>
         ))}
       </nav>
-      <span className={`chip${hayFalla ? " warn" : ""}`} title={snap?.falla ?? error ?? undefined}>
-        <span className="dot" /> {error && !snap ? "sin datos" : hora}
-      </span>
-      <ChipGps />
-      <button className={`icon-btn${loading ? " loading" : ""}`} onClick={refetch} disabled={loading} title="Forzar recálculo: trae datos frescos del Lambda (~30s)" aria-label="Forzar recálculo">
-        <span className="spin">↺</span>
-      </button>
+      <SelectorDia />
+      {/* Mirando un día del historial no hay nada en vivo: ni GPS al minuto ni
+          recálculo. El chip del snapshot pasa a decir de qué cierre son los datos. */}
+      {dia ? (
+        <span className="chip chip-historial" title={error ?? "Último snapshot que se guardó ese día"}>
+          {error && !snap ? "sin datos" : `Cierre ${hora}`}
+        </span>
+      ) : (
+        <>
+          <span className={`chip${hayFalla ? " warn" : ""}`} title={snap?.falla ?? error ?? undefined}>
+            <span className="dot" /> {error && !snap ? "sin datos" : hora}
+          </span>
+          <ChipGps />
+          <button className={`icon-btn${loading ? " loading" : ""}`} onClick={refetch} disabled={loading} title="Forzar recálculo: trae datos frescos del Lambda (~30s)" aria-label="Forzar recálculo">
+            <span className="spin">↺</span>
+          </button>
+        </>
+      )}
       <MenuUsuario />
     </header>
   );
@@ -62,6 +76,7 @@ function TopBar() {
 // de carga o el error (no hay demo).
 function Content({ children }: { children: React.ReactNode }) {
   const { snap, error, loading, refetch } = useSnap();
+  const { dia, setDia } = useDia();
   if (snap) return <div className="content">{children}</div>;
   return (
     <div className="content">
@@ -71,9 +86,16 @@ function Content({ children }: { children: React.ReactNode }) {
             <div className="estado-ic">📭</div>
             <div className="estado-tit">No hay datos para mostrar</div>
             <p className="muted">{error}</p>
-            <button className="icon-btn" style={{ width: "auto", padding: "0 14px", marginTop: 6 }} onClick={refetch}>
-              {loading ? "Cargando…" : "Reintentar"}
-            </button>
+            {/* Un día del historial sin snapshot no se arregla reintentando. */}
+            {dia ? (
+              <button className="icon-btn" style={{ width: "auto", padding: "0 14px", marginTop: 6 }} onClick={() => setDia(null)}>
+                Volver a hoy
+              </button>
+            ) : (
+              <button className="icon-btn" style={{ width: "auto", padding: "0 14px", marginTop: 6 }} onClick={refetch}>
+                {loading ? "Cargando…" : "Reintentar"}
+              </button>
+            )}
           </>
         ) : (
           <p className="muted">Cargando…</p>
@@ -102,12 +124,14 @@ function Marco({ children }: { children: React.ReactNode }) {
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <SnapshotProvider>
-      <CentroColoresProvider>
-        <ZoomProvider>
-          <Marco>{children}</Marco>
-        </ZoomProvider>
-      </CentroColoresProvider>
-    </SnapshotProvider>
+    <DiaProvider>
+      <SnapshotProvider>
+        <CentroColoresProvider>
+          <ZoomProvider>
+            <Marco>{children}</Marco>
+          </ZoomProvider>
+        </CentroColoresProvider>
+      </SnapshotProvider>
+    </DiaProvider>
   );
 }

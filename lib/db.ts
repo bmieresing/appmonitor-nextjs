@@ -54,16 +54,35 @@ export async function getSnapshotSiCambio(desde: string | null): Promise<Snapsho
 }
 
 /**
- * Puntos GPS del día (los trae el Lambda GPS cada minuto a monitor_gps_punto).
- * Sin `desde`, el día completo; con `desde` (el `hasta` de la lectura anterior),
- * solo lo recibido después — incluidos los rellenos que un camión manda con hora
- * atrasada al recuperar la señal. Es una RPC y no un SELECT porque la Data API
- * corta en 1000 filas (ver supabase/gps_schema.sql).
+ * Cierre de un día del historial: el último snapshot que se generó ese día (hora
+ * Chile). Lo guarda el mismo trigger que pisa el de hoy (supabase/historial_schema.sql).
  */
-export async function getGps(desde: string | null): Promise<LecturaGps> {
+export async function getSnapshotDia(dia: string): Promise<Snapshot> {
+  const sb = getClient();
+  const { data, error } = await sb
+    .from("monitor_snapshot_dia")
+    .select("data")
+    .eq("dia", dia)
+    .maybeSingle();
+  if (error) throw new Error(`Supabase: ${error.message}`);
+  if (!data) throw new Error(`No hay snapshot guardado del ${dia.split("-").reverse().join("-")}.`);
+  return data.data as Snapshot;
+}
+
+/**
+ * Puntos GPS de un día (los trae el Lambda GPS cada minuto a monitor_gps_punto).
+ * Sin `dia`, hoy; con `dia`, ese día del historial. Sin `desde`, el día completo;
+ * con `desde` (el `hasta` de la lectura anterior), solo lo recibido después —
+ * incluidos los rellenos que un camión manda con hora atrasada al recuperar la
+ * señal. Es una RPC y no un SELECT porque la Data API corta en 1000 filas (ver
+ * supabase/gps_schema.sql).
+ */
+export async function getGps(desde: string | null, dia: string | null = null): Promise<LecturaGps> {
   const sb = getClient();
   const valido = desde && !Number.isNaN(Date.parse(desde)) ? desde : null;
-  const { data, error } = await sb.rpc("gps_del_dia", { desde: valido });
+  // `dia` va solo cuando se pide: así la lectura de hoy es la misma llamada de
+  // siempre y no depende de la firma nueva de la RPC.
+  const { data, error } = await sb.rpc("gps_del_dia", dia ? { desde: valido, dia } : { desde: valido });
   if (error) throw new Error(`Supabase: ${error.message}`);
   return data as LecturaGps;
 }

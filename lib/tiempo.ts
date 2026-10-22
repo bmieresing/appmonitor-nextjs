@@ -107,8 +107,8 @@ export interface RutaTiempo {
   puntos: PuntoMapa[];
 }
 
-export interface FilaTiempo {
-  ruta: RutaTiempo;
+export interface FilaTiempo<R extends RutaTiempo = RutaTiempo> {
+  ruta: R;
   eventos: EventoVisita[];   // ordenados por hora
   primera: number | null;
   ultima: number | null;
@@ -118,8 +118,9 @@ export interface FilaTiempo {
 }
 
 /** Una fila por ruta, con sus visitas ordenadas en el tiempo y sus huecos.
- *  Conserva el orden recibido (en la vista Mapa: centro norte→sur, después chofer). */
-export function filasTiempo(rutas: RutaTiempo[]): FilaTiempo[] {
+ *  Conserva el orden recibido (en la vista Mapa: centro norte→sur, después chofer)
+ *  y el tipo de la ruta: la vista Mapa recibe sus `Panel` con los totales del día. */
+export function filasTiempo<R extends RutaTiempo>(rutas: R[]): FilaTiempo<R>[] {
   return rutas.map((ruta) => {
     const conHora: { punto: PuntoMapa; min: number }[] = [];
     let sinHora = 0;

@@ -6,16 +6,25 @@
 // más nuevo que esa fecha, devuelve `{ sin_cambios: true }` en vez de los ~300 KB.
 // El publisher recalcula cada 5 min y el poll corre cada 60 s, así que cuatro de
 // cada cinco respuestas caen en ese caso.
+//
+// Con `?dia=YYYY-MM-DD` sirve el cierre de ese día del historial (ignora `desde`).
 import { NextResponse } from "next/server";
-import { getSnapshot, getSnapshotSiCambio } from "@/lib/db";
+import { getSnapshot, getSnapshotDia, getSnapshotSiCambio } from "@/lib/db";
 
 export const dynamic = "force-dynamic"; // nunca cachear: siempre el último snapshot
 
 const SIN_CACHE = { "Cache-Control": "no-store" };
+const DIA = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function GET(request: Request) {
-  const desde = new URL(request.url).searchParams.get("desde");
+  const params = new URL(request.url).searchParams;
+  const desde = params.get("desde");
+  const dia = params.get("dia");
   try {
+    if (dia) {
+      if (!DIA.test(dia)) return NextResponse.json({ error: "Día inválido." }, { status: 400, headers: SIN_CACHE });
+      return NextResponse.json(await getSnapshotDia(dia), { headers: SIN_CACHE });
+    }
     // Primer fetch de la pestaña (sin `desde`): el snapshot completo, y si no hay
     // fila es un error real que la UI muestra como "no hay datos".
     if (!desde) {

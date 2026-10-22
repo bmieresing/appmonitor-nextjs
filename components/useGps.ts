@@ -7,25 +7,33 @@
 //     se une a lo que ya hay sin duplicar. Incluye los rellenos que un camión sin
 //     señal manda con hora atrasada al reconectarse: entran en su lugar por hora.
 //   · Al cambiar el día (hora Chile) se descarta todo y se vuelve a leer completo:
-//     el monitor es solo del día.
+//     el monitor en vivo es solo del día.
+//   · Mirando un día del historial (DiaContext): una sola lectura de ese día
+//     completo, sin poll — ya no le llegan puntos.
 //
 // Si una lectura falla, la vista sigue con lo que tenía y la próxima reintenta.
 import { useEffect, useRef, useState } from "react";
 import type { Gps, LecturaGps } from "@/lib/types";
 import { unirPuntos } from "@/lib/gps";
+import { useDia } from "./DiaContext";
 
 const INTERVALO_MS = 60_000;
 const VACIO: Gps = {};
 
 export function useGps(): Gps {
+  const { dia } = useDia();
   const [gps, setGps] = useState<Gps>(VACIO);
   const estado = useRef<{ dia: string | null; hasta: string | null }>({ dia: null, hasta: null });
 
   useEffect(() => {
     let vivo = true;
+    estado.current = { dia: null, hasta: null };
+    setGps(VACIO);
 
     const leer = async () => {
-      const qs = estado.current.hasta ? `?desde=${encodeURIComponent(estado.current.hasta)}` : "";
+      const qs = dia
+        ? `?dia=${dia}`
+        : estado.current.hasta ? `?desde=${encodeURIComponent(estado.current.hasta)}` : "";
       try {
         const r = await fetch(`/api/gps${qs}`, { cache: "no-store" });
         if (!r.ok || !vivo) return;
@@ -33,7 +41,7 @@ export function useGps(): Gps {
         if (!vivo || !lectura?.trazas) return;
 
         // Día nuevo: lo cargado es de ayer. Se descarta y se pide el día completo.
-        if (estado.current.dia && lectura.dia !== estado.current.dia) {
+        if (!dia && estado.current.dia && lectura.dia !== estado.current.dia) {
           estado.current = { dia: lectura.dia, hasta: null };
           setGps(VACIO);
           leer();
@@ -62,9 +70,10 @@ export function useGps(): Gps {
     };
 
     leer();
+    if (dia) return () => { vivo = false; };
     const id = setInterval(leer, INTERVALO_MS);
     return () => { vivo = false; clearInterval(id); };
-  }, []);
+  }, [dia]);
 
   return gps;
 }

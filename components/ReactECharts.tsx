@@ -72,5 +72,10 @@ export default function ReactECharts({
     chart.current?.setOption(withFont, true);
   }, [option]);
 
-  return <div ref={ref} className={className} style={{ width: "100%", height }} />;
+  // `contain: inline-size`: el ancho del contenedor no depende del canvas. ECharts
+  // le fija al canvas un ancho en px; sin esto, al bajar el zoom del tablero la
+  // columna de la grilla no podía achicarse por debajo de ese canvas, el
+  // contenedor nunca cambiaba de tamaño, el ResizeObserver no se enteraba y la fila
+  // quedaba desbordada hasta recargar.
+  return <div ref={ref} className={className} style={{ width: "100%", height, contain: "inline-size", minWidth: 0 }} />;
 }

@@ -16,6 +16,7 @@ import GrillaChoferes from "@/components/GrillaChoferes";
 import MarcoMitades from "@/components/MarcoMitades";
 import FiltroCentro from "@/components/FiltroCentro";
 import { useSnap } from "@/components/SnapshotContext";
+import { useDia } from "@/components/DiaContext";
 import { useCentroColores } from "@/components/CentroColores";
 import { useTheme } from "@/components/ThemeProvider";
 import { agruparMitades, colorMitad, ICONO_MITAD, MITADES } from "@/lib/mitades";
@@ -24,6 +25,7 @@ const TODOS = "Todos";
 
 function RegionesInner() {
   const { snap } = useSnap();
+  const { dia } = useDia();
   const { centroDe, colorDe, zonaMap } = useCentroColores();
   const { tokens: t } = useTheme();
   const router = useRouter();
@@ -65,8 +67,14 @@ function RegionesInner() {
     ...MITADES.map((m) => ({ id: m, label: m, icono: ICONO_MITAD[m], color: colorMitad(m, t), n: grupos[m].length })),
   ];
   const cards = mitad === TODOS ? delCentro : grupos[mitad as (typeof MITADES)[number]];
-  const setFiltro = (c: string) =>
-    router.replace(c ? `/regiones?centro=${encodeURIComponent(c)}` : "/regiones");
+  // Arma la query entera: un replace con solo `centro` le borraría a la URL el
+  // `?dia=` del historial (DiaContext no se entera, porque la ruta no cambia).
+  const setFiltro = (c: string) => {
+    const q = new URLSearchParams();
+    if (c) q.set("centro", c);
+    if (dia) q.set("dia", dia);
+    router.replace(q.size ? `/regiones?${q}` : "/regiones");
+  };
 
   return (
     <div>

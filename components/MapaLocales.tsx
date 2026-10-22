@@ -15,7 +15,8 @@ import { miles } from "@/lib/format";
 import { estadoColor } from "@/lib/theme";
 import type { PuntoMapa } from "@/lib/mapa";
 import type { TrazaGps } from "@/lib/types";
-import { CAMION_D, camionSvg, minutoAhora, popupCamion, vigente } from "@/lib/gps";
+import { CAMION_D, CIERRE_DIA, camionSvg, minutoAhora, popupCamion, vigente } from "@/lib/gps";
+import { useDia } from "./DiaContext";
 
 // Tiles de OpenStreetMap, sin key. Antes eran de CARTO, que desde el 23-09-2026
 // estampa "API KEY REQUIRED" en cada tile pedida sin key. OSM no tiene variante
@@ -114,6 +115,7 @@ export default function MapaLocales({
   patente?: string | null;
 }) {
   const { tokens: t } = useTheme();
+  const { dia } = useDia();
   const ref = useRef<HTMLDivElement>(null);
   const LRef = useRef<typeof L | null>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -231,7 +233,9 @@ export default function MapaLocales({
       color: t.accent2, weight: 3, opacity: 0.75, lineJoin: "round",
     }).addTo(capa);
     const ultimo = traza.ultimo;
-    const fresco = vigente(ultimo, minutoAhora());
+    // En un día del historial el reloj queda en su cierre, no en la hora real.
+    const ahora = () => (dia ? CIERRE_DIA : minutoAhora());
+    const fresco = vigente(ultimo, ahora());
     Lf.marker([ultimo[1], ultimo[2]], {
       icon: Lf.divIcon({
         className: `mapa-camion${fresco ? "" : " viejo"}`,
@@ -240,9 +244,9 @@ export default function MapaLocales({
       }),
       zIndexOffset: 2000,   // sobre los pines: es lo que se viene a buscar
     })
-      .bindPopup(() => popupCamion(patente ?? "", ultimo, minutoAhora()), { closeButton: true })
+      .bindPopup(() => popupCamion(patente ?? "", ultimo, ahora()), { closeButton: true })
       .addTo(capa);
-  }, [listo, traza, patente, t]);
+  }, [listo, traza, patente, t, dia]);
 
   // ── Encuadre ────────────────────────────────────────────────────────────
   // Cada cambio de filtro tiene que acercar a lo que quedó visible. `puntos` se

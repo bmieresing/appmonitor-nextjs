@@ -114,6 +114,10 @@ export function unirPuntos(actual: PuntoGps[] | undefined, nuevos: PuntoGps[]): 
   return agregados[0][0] >= ultimo ? unidos : unidos.sort((a, b) => a[0] - b[0]);
 }
 
+/** "Ahora" de un día del historial: se mira como si fueran las 23:59 de ese día,
+ *  así el camión y su "hace X min" quedan como estaban al cierre. */
+export const CIERRE_DIA = 24 * 60 - 1;
+
 /** Minutos desde medianoche de ahora, en la hora del navegador (la misma
  *  convención que ventanaDe en tiempo.ts: el monitor se mira desde Chile). */
 export function minutoAhora(): number {

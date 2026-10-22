@@ -1,32 +1,32 @@
 "use client";
-// Vista Mapa: la ruta del día de cada chofer, en tres lecturas.
+// Vista Mapa: la ruta del día de cada chofer, en dos lecturas.
 //
 // El resto del dashboard responde CUÁNTO falta; esta responde DÓNDE y CUÁNDO:
-//   · Mapas           — un mapa por ruta, con sus locales pintados por estado.
+//   · Mapas           — un mapa por ruta, con sus locales pintados por estado. Cada
+//                       mapa tiene su ▶ para reproducir el recorrido de esa ruta, y
+//                       "Reproducir todo el tramo" los mueve todos con un reloj común.
 //   · Línea de tiempo — una fila por ruta, un punto por visita en su hora.
-//   · Reproducción    — el recorrido de una ruta como video, sobre el mapa.
 //
 // La unidad es la ruta, no el territorio. Un mapa regional (o nacional) apila
 // cientos de locales en el mismo píxel y termina siendo una mancha; la ruta de un
 // chofer entra completa en un panel chico, con el zoom justo y los puntos
 // separados. Y es la unidad con la que se opera: cada panel es el trabajo de una
-// persona, con su propio avance. Los tres modos comparten filtros y tabs.
+// persona, con su propio avance. Los dos modos comparten filtros y tabs.
 //
 // Todo sale del detalle por local que ya trae el snapshot (lib/mapa.ts): no viajan
 // datos nuevos más allá de las coordenadas y la hora de cada visita.
 import React, { useEffect, useMemo, useState } from "react";
-import MapaLocales, { PinLeyenda } from "@/components/MapaLocales";
+import { PinLeyenda } from "@/components/MapaLocales";
 import FullscreenToggle from "@/components/FullscreenToggle";
-import MapaModal, { BotonAgrandar } from "@/components/MapaModal";
 import TimelineRutas from "@/components/TimelineRutas";
 import ReproduccionRutas from "@/components/ReproduccionRutas";
 import { useSnap } from "@/components/SnapshotContext";
 import { useGps } from "@/components/useGps";
 import { finTraza, inicioMovimiento, trazaDe } from "@/lib/gps";
-import { useCentroColores, estiloRuta } from "@/components/CentroColores";
+import { useCentroColores } from "@/components/CentroColores";
 import { useTheme } from "@/components/ThemeProvider";
 import {
-  puntosDeSnapshot, panelesPorChofer, tramosPorCentro, TRAMOS,
+  puntosDeSnapshot, panelesPorChofer, tieneCoords, tramosPorCentro, TRAMOS,
   type PuntoMapa, type Tramo,
 } from "@/lib/mapa";
 import { filasTiempo, ventanaDe, aMinutos, sinSoporteHora } from "@/lib/tiempo";
@@ -35,12 +35,11 @@ import { miles } from "@/lib/format";
 
 const FALTA = "__falta__";           // opción "todo lo que no está realizado"
 
-type Modo = "mapas" | "tiempo" | "video";
+type Modo = "mapas" | "tiempo";
 
 const MODOS: { id: Modo; label: string; icono: string; title: string }[] = [
-  { id: "mapas", label: "Mapas", icono: "🗺️", title: "Un mapa por ruta: dónde está cada local" },
+  { id: "mapas", label: "Mapas", icono: "🗺️", title: "Un mapa por ruta; ▶ reproduce su recorrido" },
   { id: "tiempo", label: "Línea de tiempo", icono: "⏱️", title: "Cuándo se registró cada visita, ruta por ruta" },
-  { id: "video", label: "Reproducción", icono: "▶", title: "El recorrido de una ruta, hora por hora, sobre el mapa" },
 ];
 
 export default function MapaPage() {
@@ -57,8 +56,6 @@ export default function MapaPage() {
   const [soloAlta, setSoloAlta] = useState(false);
   const [soloEmerg, setSoloEmerg] = useState(false);
   const [verSinUbic, setVerSinUbic] = useState(false);
-  // Panel abierto en grande (id = chofer), en el modo Mapas.
-  const [ampliado, setAmpliado] = useState<string | null>(null);
 
   const datos = useMemo(() => puntosDeSnapshot(snap), [snap]);
   const ordenCentro = useMemo(() => new Map(zonaMap.map((m) => [m.centro, m.orden] as const)), [zonaMap]);
@@ -73,17 +70,12 @@ export default function MapaPage() {
     return true;
   }, [estado, soloAlta, soloEmerg]);
 
-  const visibles = useMemo(() => datos.puntos.filter(pasa), [datos.puntos, pasa]);
   const sinUbicVisibles = useMemo(() => datos.sinUbicacion.filter(pasa), [datos.sinUbicacion, pasa]);
-  const todosPaneles = useMemo(
-    () => panelesPorChofer(visibles, centroDe, ordenCentro, tramos),
-    [visibles, centroDe, ordenCentro, tramos],
-  );
-  const paneles = useMemo(() => todosPaneles.filter((p) => p.tramo === tab), [todosPaneles, tab]);
 
-  // Paneles del tiempo: mismos agrupamiento y orden, pero SIN exigir coordenadas.
-  // Un local sin geocodificar igual tiene hora de visita, y dejarlo afuera falsearía
-  // el ritmo de la ruta (justo lo que estas dos vistas miden).
+  // Paneles: agrupados por chofer SIN exigir coordenadas. Un local sin geocodificar
+  // igual tiene hora de visita y cuenta en el avance de la ruta; dejarlo afuera
+  // falsearía el ritmo (lo que miden la reproducción y la línea de tiempo). El mapa
+  // de cada panel dibuja solo los que tienen coordenadas.
   const visiblesTodos = useMemo(() => datos.todos.filter(pasa), [datos.todos, pasa]);
   const panelesTiempoTodos = useMemo(
     () => panelesPorChofer(visiblesTodos, centroDe, ordenCentro, tramos),
@@ -92,6 +84,12 @@ export default function MapaPage() {
   const filas = useMemo(
     () => filasTiempo(panelesTiempoTodos.filter((p) => p.tramo === tab)),
     [panelesTiempoTodos, tab],
+  );
+  // En Mapas entra la ruta que tenga algo que dibujar: un local ubicado o el GPS de
+  // su camión. Las que no, quedan en el chip "sin ubicación".
+  const filasMapa = useMemo(
+    () => filas.filter((f) => f.ruta.puntos.some(tieneCoords) || trazaDe(gps, f.ruta.patente)),
+    [filas, gps],
   );
   // La ventana horaria sale de TODOS los tramos, no solo del visible: así el eje no
   // se mueve al cambiar de tab y las horas se comparan entre tramos.
@@ -109,20 +107,12 @@ export default function MapaPage() {
     return ventanaDe(mins);
   }, [visiblesTodos, panelesTiempoTodos, gps]);
 
-  // Cada modo cuenta lo suyo: los tabs del modo mapas hablan de lo que se puede
-  // dibujar; los del tiempo, de todas las rutas con visitas registradas.
-  const panelesDelModo = modo === "mapas" ? todosPaneles : panelesTiempoTodos;
   const sinHoras = useMemo(() => sinSoporteHora(datos.todos), [datos.todos]);
 
   // Encuadre: cada cambio de filtro o de tab acerca a lo que quedó visible.
   const filtroKey = `${tab}|${estado}|${soloAlta}|${soloEmerg}`;
   const [fit, setFit] = useState("init");
   useEffect(() => { setFit(filtroKey); }, [filtroKey]);
-
-  // El pin se pinta por estado. El centro ya se lee en el recuadro de la ruta de
-  // cada panel, así que colorear los puntos por centro solo duplicaba esa info y
-  // le quitaba al mapa la única pregunta que responde bien: qué falta.
-  const pintar = useMemo(() => (p: PuntoMapa) => estadoColor(p.estado, t), [t]);
 
   if (!snap) return <p className="muted">Cargando…</p>;
   if (datos.total === 0) return <p className="muted">Sin locales asignados para hoy.</p>;
@@ -138,7 +128,7 @@ export default function MapaPage() {
     <div className="mapa-page">
       <div className="toolbar mapa-toolbar">
         {/* Modo de lectura. Los filtros y los tabs de tramo son los mismos en los
-            tres: se cambia cómo se mira lo filtrado, no qué se filtra. */}
+            dos: se cambia cómo se mira lo filtrado, no qué se filtra. */}
         <div className="modo-sw">
           {MODOS.map((m) => (
             <button key={m.id} className={`modo-btn${modo === m.id ? " active" : ""}`}
@@ -170,7 +160,7 @@ export default function MapaPage() {
           (norte→sur), tomando Logística Santiago como eje. */}
       <div className="mapa-tabs">
         {TRAMOS.map((tr) => {
-          const ps = panelesDelModo.filter((p) => p.tramo === tr.id);
+          const ps = panelesTiempoTodos.filter((p) => p.tramo === tr.id);
           const locales = ps.reduce((s, p) => s + p.puntos.length, 0);
           const hechos = ps.reduce((s, p) => s + p.realizados, 0);
           const pct = locales > 0 ? Math.round((hechos / locales) * 100) : 0;
@@ -189,7 +179,7 @@ export default function MapaPage() {
 
       <div className="mapa-resumen">
         <span className="chip">
-          <b className="tnum">{miles(modo === "mapas" ? paneles.length : filas.length)}</b>
+          <b className="tnum">{miles(modo === "mapas" ? filasMapa.length : filas.length)}</b>
           &nbsp;rutas en {tab}
         </span>
         {modo === "mapas" && sinUbicVisibles.length > 0 && (
@@ -198,7 +188,7 @@ export default function MapaPage() {
             📍 {miles(sinUbicVisibles.length)} sin ubicación {verSinUbic ? "▲" : "▼"}
           </button>
         )}
-        {/* Una sola leyenda para los tres modos: el color siempre dice el estado,
+        {/* Una sola leyenda para los dos modos: el color siempre dice el estado,
             sea un pin del mapa, un punto de la línea de tiempo o del recorrido. */}
         <div className="mapa-leyenda">
           {ESTADOS.map((e) => (
@@ -260,66 +250,14 @@ export default function MapaPage() {
         ) : (
           <TimelineRutas filas={filas} ventana={ventana} colorCentro={colorCentro} />
         )
-      ) : modo === "video" ? (
-        filas.length === 0 ? (
-          <p className="muted">Ninguna ruta de {tab} coincide con los filtros.</p>
-        ) : (
-          <ReproduccionRutas filas={filas} ventana={ventana} colorCentro={colorCentro} gps={gps} />
-        )
-      ) : paneles.length === 0 ? (
+      ) : filasMapa.length === 0 ? (
         <p className="muted">Ninguna ruta de {tab} coincide con los filtros.</p>
       ) : (
-        <div className="mapa-paneles">
-          {paneles.map((pan) => (
-            <div key={pan.id} className="card mapa-panel">
-              <div className="mapa-panel-head">
-                <div className="mapa-panel-id">
-                  <div className="mapa-panel-tit" title={pan.titulo}>{pan.titulo}</div>
-                  {pan.subtitulo && (
-                    <div className="mapa-panel-ruta" style={estiloRuta(colorCentro(pan.centro))} title={pan.centro}>
-                      {pan.subtitulo}
-                    </div>
-                  )}
-                </div>
-                <div className="mapa-panel-acciones">
-                  <div className="mapa-panel-kpis">
-                    <b className="tnum" style={{ color: semaforo(pan.pct, t) }}>{pan.pct}%</b>
-                    <span className="mapa-panel-det tnum">{miles(pan.realizados)}/{miles(pan.puntos.length)} · {miles(pan.litros)} L</span>
-                  </div>
-                  <BotonAgrandar onClick={() => setAmpliado(pan.id)} />
-                </div>
-              </div>
-              <MapaLocales
-                puntos={pan.puntos} colorDe={pintar} alto="100%"
-                fitKey={`${pan.id}|${fit}`} scrollZoom={false}
-                traza={trazaDe(gps, pan.patente)} patente={pan.patente}
-              />
-            </div>
-          ))}
-        </div>
+        // La key por tab: al cambiar de tramo se corta cualquier reproducción en
+        // curso, en vez de seguir con un reloj calculado para otras rutas.
+        <ReproduccionRutas key={tab} filas={filasMapa} ventana={ventana} colorCentro={colorCentro}
+          gps={gps} fitKey={fit} />
       )}
-
-      {/* En grande: otra instancia del mismo mapa, con zoom por rueda (en el panel
-          chico va apagado para no secuestrar el scroll de la página). */}
-      {modo === "mapas" && (() => {
-        const pan = paneles.find((p) => p.id === ampliado);
-        if (!pan) return null;
-        return (
-          <MapaModal
-            titulo={pan.titulo}
-            subtitulo={pan.subtitulo && (
-              <div className="mapa-panel-ruta" style={estiloRuta(colorCentro(pan.centro))}>{pan.subtitulo}</div>
-            )}
-            onClose={() => setAmpliado(null)}
-          >
-            <MapaLocales
-              puntos={pan.puntos} colorDe={pintar} alto="100%"
-              fitKey={`modal|${pan.id}`} scrollZoom
-              traza={trazaDe(gps, pan.patente)} patente={pan.patente}
-            />
-          </MapaModal>
-        );
-      })()}
     </div>
   );
 }

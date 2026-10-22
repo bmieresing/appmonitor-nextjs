@@ -10,6 +10,7 @@ import TimelineRutas from "./TimelineRutas";
 import ControlesReproduccion from "./ControlesReproduccion";
 import { useReproduccion, type Reproduccion } from "./useReproduccion";
 import MapaModal, { BotonAgrandar } from "./MapaModal";
+import { BarraJornada, jornadaDe } from "./MapaPanel";
 import Tank from "./Tank";
 import AvisoDesbalance from "./AvisoDesbalance";
 import PanelInconsistencias from "./PanelInconsistencias";
@@ -224,13 +225,15 @@ function useRutaDelDia(
 // vistas muestran exactamente los mismos locales. Si el camión del chofer tiene GPS,
 // los dos modos lo usan igual que en la vista Mapa: recorrido del día + posición
 // actual en el estático, camino real con el camión moviéndose en la reproducción.
-function MapaRuta({ c, rd, repro, rep, onRepro, traza }: {
+function MapaRuta({ c, rd, repro, rep, onRepro, traza, jornada }: {
   c: CarruselChofer;
   rd: RutaDelDia;
   repro: boolean;
   rep: Reproduccion;
   onRepro: (v: boolean) => void;
   traza: TrazaGps | null;
+  /** Qué se puede reproducir (jornadaDe); null si el camión no salió ni hay visitas. */
+  jornada: { inicio: number; fin: number } | null;
 }) {
   const { tokens: t } = useTheme();
   const minuto = rep.minuto;
@@ -255,8 +258,9 @@ function MapaRuta({ c, rd, repro, rep, onRepro, traza }: {
           </span>
         </div>
         <div className="mapa-panel-acciones">
-          {/* El toggle solo aparece si hay horas que reproducir. */}
-          {rd.hayHoras && (
+          {/* El toggle aparece en cuanto hay algo que reproducir: una visita o la
+              salida del camión según el GPS. */}
+          {jornada && (
             <div className="modo-sw modo-sw-mini">
               <button className={`modo-btn${!repro ? " active" : ""}`} onClick={() => onRepro(false)} title="Todos los locales a la vez">Mapa</button>
               <button className={`modo-btn${repro ? " active" : ""}`} onClick={() => onRepro(true)} title="Reproducir el recorrido hora por hora">▶ Recorrido</button>
@@ -278,7 +282,7 @@ function MapaRuta({ c, rd, repro, rep, onRepro, traza }: {
           titulo={c.chofer}
           subtitulo={c.ruta && <div className="mapa-panel-ruta">{c.ruta}</div>}
           onClose={() => setGrande(false)}
-          pie={rd.hayHoras ? (
+          pie={rd.hayHoras || repro ? (
             <>
               {repro && (
                 <ControlesReproduccion rep={rep}>
@@ -289,9 +293,11 @@ function MapaRuta({ c, rd, repro, rep, onRepro, traza }: {
                 </ControlesReproduccion>
               )}
               {/* La misma línea de tiempo de la card: en Recorrido es la barra del
-                  video (cursor + click para saltar). */}
-              <TimelineChofer rd={rd} titulo="Línea de tiempo de la ruta"
-                cursor={repro ? minuto : null} onSaltar={repro ? rep.irA : undefined} />
+                  video (cursor + click para saltar). Sin visitas, la de la jornada. */}
+              {rd.hayHoras
+                ? <TimelineChofer rd={rd} titulo="Línea de tiempo de la ruta"
+                    cursor={repro ? minuto : null} onSaltar={repro ? rep.irA : undefined} />
+                : jornada && <BarraJornada rep={rep} inicio={jornada.inicio} fin={jornada.fin} />}
             </>
           ) : undefined}
         >
@@ -464,10 +470,12 @@ export default function CarruselView({ carrusel, global, initialChofer, inconsis
   const salida = inicioMovimiento(traza?.puntos);
   const finGps = finTraza(traza?.puntos);
   const rd = useRutaDelDia(c, centroDe, salida, finGps);
-  const arranque = Math.min(rd.fila.primera ?? Infinity, salida ?? Infinity);
-  // Termina en lo último que pasó: la última visita o el último reporte del camión.
-  const fin = Math.max(rd.fila.ultima ?? -1, finGps ?? -1);
-  const rep = useReproduccion(Number.isFinite(arranque) ? arranque : 0, fin, repro && rd.hayHoras);
+  // De la salida (o la primera visita) a lo último que pasó: la última visita o el
+  // último reporte del camión. Basta con que el camión haya salido para poder
+  // reproducir: no hace falta esperar la primera recolección.
+  const jornada = useMemo(() => jornadaDe(rd.fila, traza), [rd.fila, traza]);
+  const hayRecorrido = jornada !== null;
+  const rep = useReproduccion(jornada?.inicio ?? 0, jornada?.fin ?? -1, repro && hayRecorrido);
 
   if (!c) return <p className="muted">Sin datos de recolecciones para hoy.</p>;
   const locOrden = (c.locales ?? []).slice().sort((a, b) => b.Litros - a.Litros); // desc
@@ -657,9 +665,9 @@ export default function CarruselView({ carrusel, global, initialChofer, inconsis
               Se lleva el doble de ancho que los rankings — es lo único de la vista
               que gana con cada píxel. */}
           <div className="lists-col lists-col-mapa">
-            <MapaRuta c={c} rd={rd} repro={repro && rd.hayHoras} rep={rep} onRepro={setRepro}
-              traza={traza} />
-            {repro && rd.hayHoras && (
+            <MapaRuta c={c} rd={rd} repro={repro && hayRecorrido} rep={rep} onRepro={setRepro}
+              traza={traza} jornada={jornada} />
+            {repro && jornada && (
               <ControlesReproduccion rep={rep} compacto>
                 <span className="chip">
                   <b className="tnum">{miles(rd.fila.eventos.filter((e) => e.min <= rep.minuto).length)}</b>
@@ -667,14 +675,19 @@ export default function CarruselView({ carrusel, global, initialChofer, inconsis
                 </span>
               </ControlesReproduccion>
             )}
+            {/* Sin visitas todavía no hay línea de tiempo que haga de barra del
+                video: va la de la jornada del camión. */}
+            {repro && jornada && !rd.hayHoras && (
+              <div className="card card-pad"><BarraJornada rep={rep} inicio={jornada.inicio} fin={jornada.fin} /></div>
+            )}
 
             {/* La línea de tiempo cierra la columna del mapa, justo debajo y a su
                 mismo ancho: son las dos lecturas de la misma ruta —dónde y cuándo—,
                 y una arriba de la otra el eje horario se lee contra el recorrido en
                 vez de contra los rankings de al lado. */}
             <TimelineChofer rd={rd} titulo={esGlobal ? "Línea de tiempo del día" : "Línea de tiempo de la ruta"}
-              cursor={repro && rd.hayHoras ? rep.minuto : null}
-              onSaltar={repro && rd.hayHoras ? rep.irA : undefined} />
+              cursor={repro && hayRecorrido ? rep.minuto : null}
+              onSaltar={repro && hayRecorrido ? rep.irA : undefined} />
           </div>
         </div>
       </div>

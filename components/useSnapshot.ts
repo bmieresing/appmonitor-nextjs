@@ -15,6 +15,9 @@
 // por esa fecha y responde `{ sin_cambios: true }` cuando no hay nada nuevo, en
 // vez de mandar los ~300 KB del snapshot. Con el publisher recalculando cada 5 min
 // y el poll cada 60 s, eso es cuatro de cada cinco respuestas.
+//
+// Con `dia` (un día del historial, ver DiaContext) lee una sola vez el cierre de
+// ese día: un día pasado no cambia, así que no hay poll ni recálculo.
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Snapshot } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
@@ -50,15 +53,18 @@ function esMasNuevo(nuevo: Snapshot, actual: Snapshot | null): boolean {
   return a > b;
 }
 
-export function useSnapshot() {
+export function useSnapshot(dia: string | null = null) {
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const vivo = useRef(true);
   const snapRef = useRef<Snapshot | null>(null);
+  // Sube en cada cambio de día: una respuesta que salió antes del cambio no puede
+  // pintar el día anterior sobre el elegido.
+  const gen = useRef(0);
 
-  const aplicar = useCallback((nuevo: Snapshot) => {
-    if (!vivo.current) return;
+  const aplicar = useCallback((nuevo: Snapshot, g: number) => {
+    if (!vivo.current || g !== gen.current) return;
     if (esMasNuevo(nuevo, snapRef.current)) {
       snapRef.current = nuevo;
       setSnap(nuevo);
@@ -69,22 +75,23 @@ export function useSnapshot() {
   // Una lectura del route, condicionada a lo que ya tenemos en memoria. Devuelve
   // el snapshot si llegó uno nuevo, o null si no cambió nada.
   const pedir = useCallback(async (desde?: string | null): Promise<Snapshot | null> => {
-    const qs = desde ? `?desde=${encodeURIComponent(desde)}` : "";
+    const qs = dia ? `?dia=${dia}` : desde ? `?desde=${encodeURIComponent(desde)}` : "";
     const r = await fetch(`/api/snapshot${qs}`, { cache: "no-store" });
     const body = (await r.json().catch(() => null)) as Respuesta | { error?: string } | null;
     if (!r.ok) throw new Error((body as { error?: string })?.error || `HTTP ${r.status}`);
     if (esSinCambios(body as Respuesta)) return null;
     return body as Snapshot;
-  }, []);
+  }, [dia]);
 
   // Poll silencioso: lee la tabla materializada (no mueve el spinner).
   const cargar = useCallback(async () => {
+    const g = gen.current;
     try {
       const nuevo = await pedir(snapRef.current?.generated_at);
-      if (nuevo) aplicar(nuevo);
-      else if (vivo.current) setError(null);   // sin cambios es una respuesta sana
+      if (nuevo) aplicar(nuevo, g);
+      else if (vivo.current && g === gen.current) setError(null);   // sin cambios es una respuesta sana
     } catch (e) {
-      if (vivo.current) setError(e instanceof Error ? e.message : String(e));
+      if (vivo.current && g === gen.current) setError(e instanceof Error ? e.message : String(e));
     }
   }, [aplicar, pedir]);
 
@@ -95,7 +102,9 @@ export function useSnapshot() {
   // El "más nuevo que el que teníamos" lo resuelve el mismo `?desde` del poll: si
   // el pull recibe algo, por construcción ya es posterior al snapshot previo.
   const refetch = useCallback(async () => {
+    if (dia) return;   // un día cerrado no se recalcula
     setLoading(true);
+    const g = gen.current;
     const previo = snapRef.current?.generated_at ?? null;
     try {
       const { error: rpcError } = await createClient().rpc("force_refresh");
@@ -107,7 +116,7 @@ export function useSnapshot() {
         try {
           const nuevo = await pedir(previo);
           if (nuevo) {
-            aplicar(nuevo);
+            aplicar(nuevo, g);
             return;
           }
         } catch {
@@ -119,14 +128,21 @@ export function useSnapshot() {
     } finally {
       if (vivo.current) setLoading(false);
     }
-  }, [aplicar, pedir]);
+  }, [aplicar, pedir, dia]);
 
+  // Al cambiar de día se descarta lo que había: el snapshot de otro día no es
+  // "más viejo" que este, es otra cosa.
   useEffect(() => {
     vivo.current = true;
+    gen.current += 1;
+    snapRef.current = null;
+    setSnap(null);
+    setError(null);
     cargar();
+    if (dia) return () => { vivo.current = false; };
     const id = setInterval(cargar, INTERVALO_MS);
     return () => { vivo.current = false; clearInterval(id); };
-  }, [cargar]);
+  }, [cargar, dia]);
 
   return { snap, error, loading, refetch };
 }
