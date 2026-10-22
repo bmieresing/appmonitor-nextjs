@@ -4,6 +4,9 @@
 //     contenido arriba para aprovechar todo el alto —útil en TV/monitores—.
 //  2) la Fullscreen API real del navegador, que además esconde su propio chrome.
 // Si la Fullscreen API falla o se deniega, el modo kiosco igual se aplica.
+// Con ?pantalla=1 (la tele de la oficina, app android-tv, que entra sin sesión) arranca
+// en kiosco sin botón para salir ni para forzar el recálculo: no hay navegación a
+// otras vistas y force_refresh() exige sesión.
 import React, { useCallback, useEffect, useState } from "react";
 import { useSnap } from "./SnapshotContext";
 import ChipGps from "./ChipGps";
@@ -11,6 +14,7 @@ import { ZoomControl } from "./Zoom";
 
 export default function FullscreenToggle() {
   const [on, setOn] = useState(false);
+  const [pantalla, setPantalla] = useState(false);
   // En modo kiosco la barra superior se oculta, así que traemos el chip de hora
   // y el botón de actualizar acá para no perderlos.
   const { snap, error, loading, refetch } = useSnap();
@@ -28,6 +32,14 @@ export default function FullscreenToggle() {
   const exit = useCallback(async () => {
     apply(false);
     try { if (document.fullscreenElement) await document.exitFullscreen(); } catch { /* ignore */ }
+  }, [apply]);
+
+  // window.location y no useSearchParams: este último obliga a envolver la página en Suspense.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("pantalla") === "1") {
+      setPantalla(true);
+      apply(true);
+    }
   }, [apply]);
 
   // Sincroniza el estado cuando el usuario sale del fullscreen con ESC/F11, y
@@ -48,14 +60,16 @@ export default function FullscreenToggle() {
 
   return (
     <>
-      <button
-        className={`icon-btn${on ? " active" : ""}`}
-        onClick={() => (on ? exit() : enter())}
-        title={on ? "Salir de pantalla completa" : "Pantalla completa (ocultar barra superior)"}
-        aria-label={on ? "Salir de pantalla completa" : "Pantalla completa"}
-      >
-        {on ? "⤡" : "⛶"}
-      </button>
+      {!pantalla && (
+        <button
+          className={`icon-btn${on ? " active" : ""}`}
+          onClick={() => (on ? exit() : enter())}
+          title={on ? "Salir de pantalla completa" : "Pantalla completa (ocultar barra superior)"}
+          aria-label={on ? "Salir de pantalla completa" : "Pantalla completa"}
+        >
+          {on ? "⤡" : "⛶"}
+        </button>
+      )}
       {/* Solo en kiosco: chips de hora (snapshot y GPS), zoom y actualizar, que en
           modo normal viven en la barra superior. */}
       {on && (
@@ -65,9 +79,11 @@ export default function FullscreenToggle() {
           </span>
           <ChipGps />
           <ZoomControl />
-          <button className={`icon-btn${loading ? " loading" : ""}`} onClick={refetch} disabled={loading} title="Forzar recálculo: trae datos frescos del Lambda (~30s)" aria-label="Forzar recálculo">
-            <span className="spin">↺</span>
-          </button>
+          {!pantalla && (
+            <button className={`icon-btn${loading ? " loading" : ""}`} onClick={refetch} disabled={loading} title="Forzar recálculo: trae datos frescos del Lambda (~30s)" aria-label="Forzar recálculo">
+              <span className="spin">↺</span>
+            </button>
+          )}
         </>
       )}
     </>
