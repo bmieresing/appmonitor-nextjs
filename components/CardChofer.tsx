@@ -4,11 +4,10 @@
 import React from "react";
 import Link from "next/link";
 import Tank from "./Tank";
-import AvisoDesbalance from "./AvisoDesbalance";
 import { useTheme } from "./ThemeProvider";
 import { useCentroColores, estiloRuta } from "./CentroColores";
 import { miles } from "@/lib/format";
-import { sinLocales } from "@/lib/cards";
+import { sinLocales, desbalance } from "@/lib/cards";
 import { semaforo } from "@/lib/theme";
 import type { Card as CardT } from "@/lib/types";
 
@@ -20,11 +19,14 @@ export default function CardChofer({ c }: { c: CardT }) {
   // del sheet → centro (mapeo editable) → color. Sin match → estilo plano.
   const centro = centroDe(c.tripulacion);
   const rutaColor = colorDe(centro);
+  const aviso = { hayLocales: !sinLocales(c), pctLoc: c.pct_loc, pctAlta: c.pct_alta,
+    pctLit: c.pct_lit, hayAlta: hasAlta, hayEsperado: c.prom > 0 };
+  // En la card el aviso es un marco ámbar/rojo (.aviso-warn / .aviso-alert en
+  // globals.css), no el triángulo de AvisoDesbalance, que queda solo en CarruselView.
+  const nivel = desbalance(aviso);
   return (
-    <div className={`entity-card${c.cerrado ? " cerrada" : ""}`}>
+    <div className={`entity-card${c.cerrado ? " cerrada" : ""}${nivel ? ` aviso-${nivel}` : ""}`}>
       <div className="entity-head">
-        <AvisoDesbalance hayLocales={!sinLocales(c)} pctLoc={c.pct_loc} pctAlta={c.pct_alta}
-          pctLit={c.pct_lit} hayAlta={hasAlta} hayEsperado={c.prom > 0} />
         <span className="entity-name">
           {c.cerrado ? "🔒 " : ""}
           <Link href={`/carrusel?chofer=${encodeURIComponent(c.chofer)}`} style={{ color: t.accent }}>{c.chofer}</Link>

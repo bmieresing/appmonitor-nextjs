@@ -5,10 +5,10 @@ import Link from "next/link";
 import KpiRow from "./KpiRow";
 import Tank from "./Tank";
 import GrillaChoferes from "./GrillaChoferes";
-import AvisoDesbalance from "./AvisoDesbalance";
 import { useTheme } from "./ThemeProvider";
 import { useCentroColores } from "./CentroColores";
 import { miles } from "@/lib/format";
+import { desbalance } from "@/lib/cards";
 import { semaforo } from "@/lib/theme";
 import type { Zona, Centro } from "@/lib/types";
 
@@ -25,16 +25,20 @@ function CardCentro({ c }: { c: Centro }) {
   // + nombre en el color. Sin color asignado → card por defecto. Además la card es
   // un link a Regiones filtrado por este centro.
   const color = colorDe(c.centro);
+  // Aviso ámbar/rojo como marco de la card (.aviso-warn / .aviso-alert en globals.css),
+  // igual que en CardChofer. Con aviso, el marco reemplaza al borde del centro.
+  const nivel = desbalance({ hayLocales: c.total > 0, pctLoc, pctAlta: pct(c.realizados_alta ?? 0, totalAlta),
+    pctLit, hayAlta: totalAlta > 0, hayEsperado: c.prom > 0 });
   const cardStyle: React.CSSProperties = {
     textDecoration: "none", color: "inherit", display: "block", cursor: "pointer",
-    ...(color ? { border: `1.5px solid ${color}`, background: `color-mix(in srgb, ${color} 10%, var(--surface))` } : {}),
+    ...(color ? { background: `color-mix(in srgb, ${color} 10%, var(--surface))` } : {}),
+    ...(color && !nivel ? { border: `1.5px solid ${color}` } : {}),
   };
   return (
-    <Link href={`/regiones?centro=${encodeURIComponent(c.centro)}`} className="entity-card"
+    <Link href={`/regiones?centro=${encodeURIComponent(c.centro)}`}
+      className={`entity-card${nivel ? ` aviso-${nivel}` : ""}`}
       style={cardStyle} title={`Ver choferes de ${c.centro} en Regiones`}>
       <div className="entity-head">
-        <AvisoDesbalance hayLocales={c.total > 0} pctLoc={pctLoc} pctAlta={pct(c.realizados_alta ?? 0, totalAlta)}
-          pctLit={pctLit} hayAlta={totalAlta > 0} hayEsperado={c.prom > 0} />
         <span className="entity-name" style={color ? { color } : undefined}>{c.centro}</span>
       </div>
       <div className="metric-row">

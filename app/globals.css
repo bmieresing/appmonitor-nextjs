@@ -123,6 +123,8 @@ button, input, select, textarea, optgroup { font-family: inherit; }
 }
 .zoom-ctl button:hover:not(:disabled) { color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .zoom-ctl button:disabled { opacity: .35; cursor: default; }
+/* Con el control remoto de la tele (/pantalla) hay que ver qué botón tiene el foco */
+.zoom-ctl button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .zoom-ctl .zoom-pct { min-width: 50px; padding: 0 4px; font-size: 12.5px; border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
 
 /* Menú de usuario (components/MenuUsuario.tsx): desplegable anclado a la derecha. */
@@ -164,7 +166,7 @@ body.kiosk .toolbar { margin-bottom: 10px; }
 /* /pantalla (tele de la oficina): la página recibe ~896 px (70% de 1280×720). Se achica
    el contenido y se fuerzan los 6 KPI en una fila, que si no pasan a 3 columnas por el
    max-width: 1280px de .kpi-grid. Solo aplica en /pantalla. */
-body.pantalla .content { zoom: 0.75; }
+body.pantalla .content { zoom: var(--pantalla-zoom, 0.75); } /* lo ajusta el − % + de /pantalla */
 body.pantalla .kpi-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 body.pantalla .kpi-value { font-size: 19px; }
 
@@ -352,6 +354,11 @@ body.pantalla .kpi-value { font-size: 19px; }
    un poco a la derecha y no toca ningún otro color de la card. El color lo pone el
    componente, que es quien sabe el nivel y si va sobre fondo oscuro. */
 .desb-ico { flex: 0 0 auto; margin-top: 1px; }
+/* Card de chofer: la ruta va en su propia línea bajo el nombre, y el aviso ámbar/rojo
+   (ver CardChofer) es un marco de la card: borde de 1 px + anillo de 2 px. */
+.entity-card .entity-route { flex-basis: 100%; margin-top: -4px; }
+.entity-card.aviso-warn { border-color: var(--warning); box-shadow: 0 0 0 2px var(--warning), var(--shadow); }
+.entity-card.aviso-alert { border-color: var(--critical); box-shadow: 0 0 0 2px var(--critical), var(--shadow); }
 
 /* Cards por chofer en Recolecciones: total + barra + detalle por producto.
    Borde superior de color = semáforo relativo del chofer (como el v1). */

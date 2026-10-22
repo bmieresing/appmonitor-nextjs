@@ -6,13 +6,48 @@
 //  - ningún enlace sale de la página (chofer → /carrusel, centro → /regiones);
 //  - ajustes de tamaño propios en globals.css (body.pantalla): la tele dibuja a
 //    1280×720 y la página ocupa el 70%, así que sin ellos los KPI pasan a 2 filas.
-import { useEffect } from "react";
+//  - zoom propio (− % +) que se ajusta con el control remoto. No usa el ZoomControl
+//    del tablero porque ese guarda por usuario y acá no hay sesión: se guarda en el
+//    localStorage del WebView de la tele.
+import { useEffect, useState } from "react";
 import CarruselZonas from "@/components/CarruselZonas";
 import ChipGps from "@/components/ChipGps";
 import { useSnap } from "@/components/SnapshotContext";
 
+const ZOOM_POR_DEFECTO = 0.75;
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 1.2;
+const ZOOM_PASO = 0.05;
+const ZOOM_CLAVE = "pantalla-zoom";
+
+const acotar = (z: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(z / ZOOM_PASO) * ZOOM_PASO));
+
+function leerZoom(): number {
+  try {
+    const z = Number(localStorage.getItem(ZOOM_CLAVE));
+    return z > 0 ? acotar(z) : ZOOM_POR_DEFECTO;
+  } catch {
+    return ZOOM_POR_DEFECTO;
+  }
+}
+
 export default function PantallaPage() {
   const { snap, error } = useSnap();
+  const [zoom, setZoom] = useState<number | null>(null);
+
+  // Lo lee recién en el cliente (localStorage no existe en el render del servidor)
+  useEffect(() => setZoom(leerZoom()), []);
+
+  useEffect(() => {
+    if (zoom === null) return;
+    // globals.css: body.pantalla .content { zoom: var(--pantalla-zoom) }
+    document.body.style.setProperty("--pantalla-zoom", String(zoom));
+    try { localStorage.setItem(ZOOM_CLAVE, String(zoom)); } catch { /* queda solo en memoria */ }
+  }, [zoom]);
+  useEffect(() => () => { document.body.style.removeProperty("--pantalla-zoom"); }, []);
+
+  const cambiarZoom = (z: number) => setZoom(acotar(z));
+  const actual = zoom ?? ZOOM_POR_DEFECTO;
 
   useEffect(() => {
     document.body.classList.add("kiosk", "pantalla");
@@ -44,6 +79,12 @@ export default function PantallaPage() {
             <span className="dot" /> {error && !snap ? "sin datos" : hora}
           </span>
           <ChipGps />
+          <span className="zoom-ctl" role="group" aria-label="Zoom de la pantalla">
+            <button onClick={() => cambiarZoom(actual - ZOOM_PASO)} disabled={actual <= ZOOM_MIN} title="Alejar" aria-label="Alejar">−</button>
+            <button className="zoom-pct tnum" onClick={() => cambiarZoom(ZOOM_POR_DEFECTO)}
+              title={`Zoom de la pantalla (clic: volver a ${Math.round(ZOOM_POR_DEFECTO * 100)} %)`}>{Math.round(actual * 100)}%</button>
+            <button onClick={() => cambiarZoom(actual + ZOOM_PASO)} disabled={actual >= ZOOM_MAX} title="Acercar" aria-label="Acercar">+</button>
+          </span>
         </>
       }
     />
