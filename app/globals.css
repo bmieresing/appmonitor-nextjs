@@ -744,6 +744,41 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
 .mapa-modal-cuerpo .mapa-canvas { height: 100% !important; }
 .mapa-modal-pie { flex: 0 0 auto; display: flex; flex-direction: column; gap: 8px; padding: 10px 16px 12px; border-top: 1px solid var(--border); max-height: 40%; overflow-y: auto; }
 @media (max-width: 700px) { .mapa-modal-fondo { padding: 8px; } }
+
+/* Recorrido en grande: mapa + panel del acumulado (ContadorRecorrido) a la derecha.
+   En pantallas angostas el panel baja, en una franja con scroll horizontal. */
+.mapa-modal-con-lateral { display: flex; }
+.mapa-modal-mapa { flex: 1 1 auto; min-width: 0; height: 100%; }
+.cr {
+  flex: 0 0 240px; display: flex; flex-direction: column; gap: 10px;
+  padding: 12px 14px; border-left: 1px solid var(--border); background: var(--surface-2);
+  overflow-y: auto;
+}
+.cr-hora { font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: .5px; }
+.cr-bloque { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 5px; }
+.cr-tit { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+.cr-grande { font-size: 24px; font-weight: 800; letter-spacing: -.4px; line-height: 1.1; }
+.cr-grande small { font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+.cr-fila { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13px; }
+.cr-prod { position: relative; display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 7px; overflow: hidden; font-size: 12.5px; }
+.cr-prod-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 7px; transition: width .35s ease; }
+.cr-prod-nom, .cr-prod b { position: relative; }
+.cr-prod-nom { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cr-local { font-weight: 700; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cr-vacio { font-size: 12px; color: var(--muted); }
+.cr-flash { display: inline-block; animation: cr-flash .7s ease-out; }
+.cr-ultima.cr-flash { display: flex; }
+@keyframes cr-flash {
+  0%   { background: color-mix(in srgb, var(--accent) 28%, transparent); transform: scale(1.06); }
+  100% { background: transparent; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) { .cr-flash { animation: none; } }
+@media (max-width: 800px) {
+  .mapa-modal-con-lateral { flex-direction: column; }
+  .mapa-modal-mapa { height: auto; flex: 1 1 auto; min-height: 220px; }
+  .cr { flex: 0 0 auto; flex-direction: row; overflow-x: auto; overflow-y: hidden; border-left: 0; border-top: 1px solid var(--border); }
+  .cr-bloque { flex: 0 0 200px; }
+}
 .mapa-panel-det { font-size: 10.5px; color: var(--muted); margin-top: 3px; }
 /* El contenedor de Leaflet ocupa lo que queda de la card, bajo el encabezado. */
 .mapa-canvas { width: 100%; flex: 1; min-height: 0; background: var(--surface-2); z-index: 0; }

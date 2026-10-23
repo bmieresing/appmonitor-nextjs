@@ -25,6 +25,7 @@ export default function MapaModal({
   onClose,
   acciones,
   pie,
+  lateral,
   children,
 }: {
   titulo: string;
@@ -34,6 +35,8 @@ export default function MapaModal({
   acciones?: React.ReactNode;
   /** Debajo del mapa: los controles de la reproducción, cuando corresponde. */
   pie?: React.ReactNode;
+  /** A la derecha del mapa (abajo en pantallas angostas): el acumulado del Recorrido. */
+  lateral?: React.ReactNode;
   /** El mapa. Tiene que ocupar el alto que le den (alto="100%"). */
   children: React.ReactNode;
 }) {
@@ -69,7 +72,14 @@ export default function MapaModal({
             <button className="icon-btn" onClick={onClose} title="Cerrar (Esc)" aria-label="Cerrar">✕</button>
           </div>
         </div>
-        <div className="mapa-modal-cuerpo">{children}</div>
+        {lateral
+          ? (
+            <div className="mapa-modal-cuerpo mapa-modal-con-lateral">
+              <div className="mapa-modal-mapa">{children}</div>
+              {lateral}
+            </div>
+          )
+          : <div className="mapa-modal-cuerpo">{children}</div>}
         {pie && <div className="mapa-modal-pie">{pie}</div>}
       </div>
     </div>,

@@ -198,8 +198,9 @@ export interface ZonaMapRowLike {
 // GPS del día (Pegasus). No viaja en el snapshot: lo trae otro Lambda cada minuto a
 // la tabla monitor_gps_punto, y la vista Mapa y el Carrusel lo piden por /api/gps
 // (rpc gps_del_dia). Un punto es un reporte crudo del dispositivo:
-// [minutos desde 00:00 hora Chile, lat, lon].
-export type PuntoGps = [number, number, number];
+// [minutos desde 00:00 hora Chile, lat, lon, odómetro en metros]. El odómetro es
+// null en los puntos guardados antes de que el Lambda lo pidiera (2026-10-23).
+export type PuntoGps = [number, number, number, (number | null)?];
 
 export interface TrazaGps {
   puntos: PuntoGps[];   // todos los reportes del día, ordenados por la hora del GPS

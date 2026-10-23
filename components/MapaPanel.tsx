@@ -16,6 +16,7 @@ import MapaRecorrido from "./MapaRecorrido";
 import MapaModal, { BotonAgrandar } from "./MapaModal";
 import TimelineRutas from "./TimelineRutas";
 import ControlesReproduccion from "./ControlesReproduccion";
+import ContadorRecorrido from "./ContadorRecorrido";
 import { useReproduccion, type Reproduccion } from "./useReproduccion";
 import { estiloRuta } from "./CentroColores";
 import { useTheme } from "./ThemeProvider";
@@ -147,6 +148,7 @@ export default function MapaPanel({ fila, traza, ventana, colorCentro, fitKey, r
           )}
           onClose={() => setGrande(false)}
           acciones={botonPlay}
+          lateral={rep ? <ContadorRecorrido eventos={fila.eventos} total={total} minuto={rep.minuto} traza={traza?.puntos} /> : undefined}
           pie={rep ? (
             <>
               <ControlesReproduccion rep={rep}>{conteo}</ControlesReproduccion>

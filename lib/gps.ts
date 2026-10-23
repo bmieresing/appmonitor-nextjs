@@ -91,6 +91,21 @@ export function inicioMovimiento(puntos: PuntoGps[] | null | undefined): number 
   return null;
 }
 
+/** Kilómetros recorridos desde el primer reporte del día hasta `minuto`, según el
+ *  odómetro del equipo (último − primero con odómetro). null si la traza todavía
+ *  no trae odómetro: puntos guardados antes de que el Lambda lo pidiera, o días
+ *  del historial anteriores. No se suma la distancia entre puntos: el filtro de
+ *  calidad y los cortes de señal la dejarían corta. */
+export function kmHasta(puntos: PuntoGps[] | null | undefined, minuto: number): number | null {
+  if (!puntos || puntos.length === 0) return null;
+  let ini: number | null = null;
+  for (const p of puntos) if (p[3] != null) { ini = p[3]; break; }
+  if (ini === null) return null;
+  let fin: number | null = null;
+  for (let i = puntosHasta(puntos, minuto) - 1; i >= 0 && fin === null; i--) fin = puntos[i][3] ?? null;
+  return fin === null ? 0 : Math.max(0, (fin - ini) / 1000);
+}
+
 /** Último reporte del día, o null sin GPS. La reproducción termina en el más
  *  tardío entre esto y la última visita: lo que el camión hizo después de su
  *  último local también es parte del recorrido. */

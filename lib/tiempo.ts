@@ -160,6 +160,39 @@ export function sinSoporteHora(puntos: PuntoMapa[]): boolean {
   return puntos.length > 0 && puntos.every((p) => p.hora === undefined);
 }
 
+// ── Acumulado de la reproducción ─────────────────────────────────────────
+
+export interface Acumulado {
+  hechas: number;                      // visitas registradas hasta el minuto
+  exitosas: number;                    // estado "Realizado"
+  fallidas: number;                    // "Fallido" + "No alcanzado" (como compute.py)
+  litros: number;
+  productos: { producto: string; litros: number }[];   // de mayor a menor
+  ultima: EventoVisita | null;
+}
+
+/** Lo que la ruta lleva hecho hasta `minuto` de la reproducción: el panel
+ *  lateral del Recorrido lo va mostrando a medida que avanza el reloj. */
+export function acumuladoHasta(eventos: EventoVisita[], minuto: number): Acumulado {
+  const porProducto = new Map<string, number>();
+  let hechas = 0, exitosas = 0, fallidas = 0, litros = 0;
+  let ultima: EventoVisita | null = null;
+  for (const e of eventos) {
+    if (e.min > minuto) break;   // vienen ordenados por hora
+    hechas++;
+    ultima = e;
+    if (e.punto.estado === "Realizado") exitosas++;
+    else if (e.punto.estado === "Fallido" || e.punto.estado === "No alcanzado") fallidas++;
+    litros += e.punto.litros || 0;
+    for (const p of e.punto.productos ?? []) {
+      if (p.litros) porProducto.set(p.producto, (porProducto.get(p.producto) ?? 0) + p.litros);
+    }
+  }
+  const productos = [...porProducto].map(([producto, l]) => ({ producto, litros: l }))
+    .sort((a, b) => b.litros - a.litros);
+  return { hechas, exitosas, fallidas, litros, productos, ultima };
+}
+
 // ── Agrupación de visitas cercanas ───────────────────────────────────────
 // Una tripulación registra varios locales seguidos (un mall, una galería) y en el
 // eje esos puntos caen encima unos de otros: se ve un solo punto y no hay forma de

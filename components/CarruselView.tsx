@@ -8,6 +8,7 @@ import MapaRecorrido from "./MapaRecorrido";
 import FullscreenToggle from "./FullscreenToggle";
 import TimelineRutas from "./TimelineRutas";
 import ControlesReproduccion from "./ControlesReproduccion";
+import ContadorRecorrido from "./ContadorRecorrido";
 import { useReproduccion, type Reproduccion } from "./useReproduccion";
 import MapaModal, { BotonAgrandar } from "./MapaModal";
 import { BarraJornada, jornadaDe } from "./MapaPanel";
@@ -283,6 +284,7 @@ function MapaRuta({ c, rd, repro, rep, onRepro, traza, jornada }: {
           titulo={c.chofer}
           subtitulo={c.ruta && <div className="mapa-panel-ruta">{c.ruta}</div>}
           onClose={() => setGrande(false)}
+          lateral={repro ? <ContadorRecorrido eventos={rd.fila.eventos} total={puntos.length} minuto={minuto} traza={traza?.puntos} /> : undefined}
           pie={rd.hayHoras || repro ? (
             <>
               {repro && (
