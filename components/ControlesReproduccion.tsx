@@ -24,6 +24,10 @@ export default function ControlesReproduccion({
         {rep.playing ? "⏸" : rep.terminado ? "↻" : "▶"}
       </button>
       <button className="icon-btn" onClick={rep.reiniciar} title="Volver al inicio">⏮</button>
+      {/* Pines de lo que falta visitar: dan contexto, pero en rutas largas tapan el recorrido. */}
+      <button className={`icon-btn${rep.pines ? " active" : ""}`} onClick={rep.alternarPines}
+        title={rep.pines ? "Ocultar los locales que faltan por visitar" : "Mostrar los locales que faltan por visitar"}
+        aria-pressed={rep.pines}>📍</button>
 
       <div className="rep-vel">
         {VELOCIDADES.map((v) => (

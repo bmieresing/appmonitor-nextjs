@@ -946,14 +946,13 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
 .rep-cursor::before { content: ""; position: absolute; top: -3px; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: var(--accent); }
 .rep-eje { position: relative; height: 15px; margin-top: 2px; }
 
-/* Pines del recorrido: el local aún no visitado es un punto tenue (no un pin); el
+/* Pines del recorrido: el local aún no visitado es el pin gris de pendiente; el
    recién registrado salta al entrar y el de la visita en curso late.
 
    IMPORTANTE: las animaciones van sobre el SVG interior, NUNCA sobre `.mapa-pin`.
    Ese elemento es el marcador que Leaflet posiciona con un `transform` inline, y
    una animación sobre el mismo elemento gana en la cascada: el pin se iría al
    origen del mapa mientras dure. */
-.mapa-pin-off .pin-off { display: block; width: 10px; height: 10px; border-radius: 50%; opacity: .45; border: 1.5px solid var(--surface); }
 .mapa-pin svg { transform-origin: 50% 100%; }   /* la punta del pin es el local */
 
 /* Entrada: el local que se acaba de registrar cae y rebota. Es lo que lo hace

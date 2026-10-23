@@ -273,7 +273,7 @@ function MapaRuta({ c, rd, repro, rep, onRepro, traza, jornada }: {
       {conCoords.length === 0
         ? <p className="muted">Ningún local de esta ruta tiene coordenadas cargadas.</p>
         : repro
-          ? <MapaRecorrido rutaId={c.chofer} eventos={rd.fila.eventos} pendientes={pendientes} minuto={minuto} alto={430} traza={traza?.puntos} patente={c.patente} />
+          ? <MapaRecorrido rutaId={c.chofer} eventos={rd.fila.eventos} pendientes={pendientes} minuto={minuto} alto={430} traza={traza?.puntos} patente={c.patente} pines={rep.pines} />
           : <MapaLocales puntos={conCoords} colorDe={pintar} alto={430} fitKey={c.chofer} scrollZoom={false} traza={traza} patente={c.patente} />}
 
       {/* En grande, en el modo en que esté el mapa. El auto-avance del carrusel puede
@@ -304,7 +304,7 @@ function MapaRuta({ c, rd, repro, rep, onRepro, traza, jornada }: {
         >
           {repro
             ? <MapaRecorrido key={`r|${c.chofer}`} rutaId={`modal|${c.chofer}`} eventos={rd.fila.eventos} pendientes={pendientes}
-                minuto={minuto} alto="100%" traza={traza?.puntos} patente={c.patente} scrollZoom />
+                minuto={minuto} alto="100%" traza={traza?.puntos} patente={c.patente} scrollZoom pines={rep.pines} />
             : <MapaLocales key={`m|${c.chofer}`} puntos={conCoords} colorDe={pintar} alto="100%" fitKey={`modal|${c.chofer}`}
                 scrollZoom traza={traza} patente={c.patente} />}
         </MapaModal>

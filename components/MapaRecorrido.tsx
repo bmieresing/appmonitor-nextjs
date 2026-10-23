@@ -43,7 +43,10 @@ export default function MapaRecorrido({
   traza,
   patente,
   scrollZoom = false,
+  pines = true,
 }: {
+  /** false ⇒ se quitan del mapa los locales que a esa hora todavía no se visitan. */
+  pines?: boolean;
   /** Camión de la ruta: sus alarmas del GPS aparecen cuando el reloj llega a su hora. */
   patente?: string | null;
   /** Cambia ⇒ se reconstruyen los marcadores y se reencuadra. */
@@ -75,8 +78,8 @@ export default function MapaRecorrido({
   const gpsTrazaRef = useRef<PuntoGps[] | null>(null);   // traza con la que se dibujó
   const relojPrevRef = useRef<number | null>(null);      // para detectar saltos del reloj
   const zoomRef = useRef(false);   // hay un zoom en curso: el camión no se desliza
-  // marcador + su hora (null = pendiente) + la fase ya pintada
-  const marcasRef = useRef<{ m: L.Marker; min: number | null; punto: PuntoMapa; fase: Fase | null }[]>([]);
+  // marcador + su hora (null = pendiente) + la fase ya pintada + si está en el mapa
+  const marcasRef = useRef<{ m: L.Marker; min: number | null; punto: PuntoMapa; fase: Fase | null; puesto: boolean }[]>([]);
   // Alarmas del GPS: capa propia (geocercas + pines) y cada pin con su minuto y si
   // está puesto en el mapa, para tocar solo los que cruzan el reloj.
   const alarmasCapaRef = useRef<L.LayerGroup | null>(null);
@@ -208,7 +211,7 @@ export default function MapaRecorrido({
       });
       m.bindPopup(popupHtml(punto, estadoColor(punto.estado, t)), { closeButton: true });
       m.addTo(capa);
-      marcasRef.current.push({ m, min, punto, fase: null });
+      marcasRef.current.push({ m, min, punto, fase: null, puesto: true });
     };
 
     for (const ev of vis) agregar(ev.punto, ev.min);
@@ -259,9 +262,17 @@ export default function MapaRecorrido({
     }
     const minActual = ultimo >= 0 ? visitados[ultimo].min : null;
 
+    const capa = capaRef.current;
     for (const marca of marcasRef.current) {
       const hecho = marca.min !== null && marca.min <= minuto;
       const fase: Fase = !hecho ? "futuro" : marca.min === minActual ? "actual" : "hecho";
+      // Con los pines apagados, lo que todavía no se visita sale del mapa (y vuelve
+      // en cuanto el reloj lo alcanza o se prenden de nuevo).
+      const ver = pines || fase !== "futuro";
+      if (capa && ver !== marca.puesto) {
+        marca.puesto = ver;
+        if (ver) marca.m.addTo(capa); else capa.removeLayer(marca.m);
+      }
       if (fase === marca.fase) continue;   // nada que repintar
       // Se acaba de encender (venía apagado, no es el primer pintado ni una
       // reconstrucción): se le da la animación de entrada. Sin esta condición, un
@@ -269,17 +280,20 @@ export default function MapaRecorrido({
       const entra = marca.fase === "futuro" && fase !== "futuro";
       marca.fase = fase;
 
+      const simbolo = marca.punto.emergencia ? "!" : marca.punto.prioridad === "Alta" ? "★" : null;
       if (fase === "futuro") {
-        // Todavía no ocurrió (o no se visitó nunca): punto tenue, sin peso visual.
+        // Todavía no ocurrió: el mismo pin del mapa estático. El que se visita más
+        // tarde va como pendiente (gris) hasta que el reloj lo alcanza; el que no se
+        // visitó nunca lleva su estado del día, igual que en el mapa estático.
+        const color = estadoColor(marca.min === null ? marca.punto.estado : "Pendiente", t);
         marca.m.setIcon(Lf.divIcon({
-          className: "mapa-pin mapa-pin-off",
-          html: `<span class="pin-off" style="background:${t.muted}"></span>`,
-          iconSize: [10, 10], iconAnchor: [5, 5], popupAnchor: [0, -6],
+          className: "mapa-pin",
+          html: pinSvg(color, simbolo),
+          iconSize: [PIN_W, PIN_H], iconAnchor: [PIN_W / 2, PIN_H], popupAnchor: [0, -PIN_H + 4],
         }));
         marca.m.setZIndexOffset(0);
       } else {
         const color = estadoColor(marca.punto.estado, t);
-        const simbolo = marca.punto.emergencia ? "!" : marca.punto.prioridad === "Alta" ? "★" : null;
         // Las ondas van dentro del marcador de la visita en curso: se expanden más
         // allá del pin, así que lo delatan aunque quede tapado por sus vecinos.
         const ondas = fase === "actual"
@@ -339,7 +353,7 @@ export default function MapaRecorrido({
     // si el de arriba recreó los marcadores (nacen vacíos), este tiene que correr
     // detrás aunque el reloj no se haya movido. `traza` por los puntos nuevos que
     // llegan cada minuto.
-  }, [listo, minuto, visitados, firma, t, traza]);
+  }, [listo, minuto, visitados, firma, t, traza, pines]);
 
   // ── Alarmas del GPS ──────────────────────────────────────────────────────
   // Las geocercas están siempre; cada pin aparece cuando el reloj llega a la hora de

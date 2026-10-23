@@ -30,6 +30,9 @@ export interface Reproduccion {
   alternar: () => void;      // play / pausa (y rebobina si ya terminó)
   reiniciar: () => void;
   irA: (minuto: number) => void;  // saltar a una hora: pausa y se queda ahí
+  /** Si se ven los pines de los locales que todavía no se visitan a esa hora. */
+  pines: boolean;
+  alternarPines: () => void;
 }
 
 /**
@@ -43,6 +46,7 @@ export function useReproduccion(inicio: number, fin: number, activo = true): Rep
   const [minuto, setMinuto] = useState(inicio);
   const [playing, setPlaying] = useState(activo);
   const [vel, setVel] = useState(1);
+  const [pines, setPines] = useState(true);
 
   // Rearranca al cambiar la jornada (otro chofer, otro tramo) o al activarse.
   useEffect(() => { setMinuto(inicio); setPlaying(activo); }, [inicio, activo]);
@@ -77,5 +81,7 @@ export function useReproduccion(inicio: number, fin: number, activo = true): Rep
     setPlaying(false);
   }, [inicio, fin]);
 
-  return { minuto, playing, vel, terminado, setVel, alternar, reiniciar, irA };
+  const alternarPines = useCallback(() => setPines((v) => !v), []);
+
+  return { minuto, playing, vel, terminado, setVel, alternar, reiniciar, irA, pines, alternarPines };
 }
