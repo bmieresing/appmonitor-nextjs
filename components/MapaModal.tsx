@@ -23,12 +23,15 @@ export default function MapaModal({
   titulo,
   subtitulo,
   onClose,
+  acciones,
   pie,
   children,
 }: {
   titulo: string;
   subtitulo?: React.ReactNode;
   onClose: () => void;
+  /** Botones del encabezado, antes de la ✕ (p. ej. el ▶ de la ruta). */
+  acciones?: React.ReactNode;
   /** Debajo del mapa: los controles de la reproducción, cuando corresponde. */
   pie?: React.ReactNode;
   /** El mapa. Tiene que ocupar el alto que le den (alto="100%"). */
@@ -61,7 +64,10 @@ export default function MapaModal({
             <div className="mapa-panel-tit">{titulo}</div>
             {subtitulo}
           </div>
-          <button className="icon-btn" onClick={onClose} title="Cerrar (Esc)" aria-label="Cerrar">✕</button>
+          <div className="mapa-panel-acciones">
+            {acciones}
+            <button className="icon-btn" onClick={onClose} title="Cerrar (Esc)" aria-label="Cerrar">✕</button>
+          </div>
         </div>
         <div className="mapa-modal-cuerpo">{children}</div>
         {pie && <div className="mapa-modal-pie">{pie}</div>}

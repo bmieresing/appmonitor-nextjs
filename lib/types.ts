@@ -216,6 +216,35 @@ export interface LecturaGps {
   trazas: Record<string, PuntoGps[]>;
 }
 
+// Alarmas de las reglas de Pegasus (trigger logs) y las geocercas que vigilan. Las
+// trae el Lambda GPS a monitor_gps_alarma / monitor_gps_geocerca; se leen por
+// /api/gps/alarmas (rpc alarmas_del_dia, supabase/gps_alarma_schema.sql).
+export interface AlarmaGps {
+  id: string;
+  patente: string | null;       // normalizada, como las claves de Gps
+  t: string;                    // hora del GPS en el evento que la disparó
+  hora: string;                 // "HH:MM" hora Chile
+  regla: string | null;         // nombre de la regla en Pegasus
+  mensaje: string | null;
+  nivel: string | null;         // info / warning / critical
+  lat: number | null;
+  lon: number | null;
+  geocerca: number | null;
+  evento: "entra" | "sale" | null;
+}
+
+export interface GeocercaGps {
+  id: number;
+  nombre: string | null;
+  geometria: { type: string; coordinates: unknown };   // GeoJSON de Pegasus
+}
+
+export interface LecturaAlarmas {
+  dia: string;
+  alarmas: AlarmaGps[];          // la más nueva primero
+  geocercas: GeocercaGps[];
+}
+
 export interface Snapshot {
   generated_at: string;
   hora_ciclo: string | null;

@@ -17,13 +17,14 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import type * as L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useTheme } from "./ThemeProvider";
-import { CHILE_BOUNDS, PIN_H, PIN_W, TILE_OPTS, TILE_URL, pinSvg, popupHtml } from "./MapaLocales";
+import { CHILE_BOUNDS, PIN_H, PIN_W, TILE_OPTS, TILE_URL, dibujarGeocercas, marcadorAlarma, pinSvg, popupHtml } from "./MapaLocales";
 import { estadoColor } from "@/lib/theme";
 import { tieneCoords, type PuntoMapa } from "@/lib/mapa";
 import type { EventoVisita } from "@/lib/tiempo";
 import type { PuntoGps } from "@/lib/types";
-import { CAMION_D, camionSvg, posicionEn, puntosHasta } from "@/lib/gps";
+import { CAMION_D, alarmasDeRuta, camionSvg, posicionEn, puntosHasta } from "@/lib/gps";
 import { VELOCIDADES } from "./useReproduccion";
+import { useAlarmas } from "./useAlarmas";
 
 // Lo máximo que avanza el reloj en un tick (la velocidad más rápida). Un cambio
 // mayor no es reproducción sino un salto (click en la barra, volver al inicio).
@@ -40,8 +41,11 @@ export default function MapaRecorrido({
   minuto,
   alto = 520,
   traza,
+  patente,
   scrollZoom = false,
 }: {
+  /** Camión de la ruta: sus alarmas del GPS aparecen cuando el reloj llega a su hora. */
+  patente?: string | null;
   /** Cambia ⇒ se reconstruyen los marcadores y se reencuadra. */
   rutaId: string;
   /** Visitas con hora, ordenadas cronológicamente (solo las que tienen coordenadas). */
@@ -72,6 +76,14 @@ export default function MapaRecorrido({
   const relojPrevRef = useRef<number | null>(null);      // para detectar saltos del reloj
   // marcador + su hora (null = pendiente) + la fase ya pintada
   const marcasRef = useRef<{ m: L.Marker; min: number | null; punto: PuntoMapa; fase: Fase | null }[]>([]);
+  // Alarmas del GPS: capa propia (geocercas + pines) y cada pin con su minuto y si
+  // está puesto en el mapa, para tocar solo los que cruzan el reloj.
+  const alarmasCapaRef = useRef<L.LayerGroup | null>(null);
+  const pinesAlarmaRef = useRef<{ m: L.Marker; min: number; puesto: boolean }[]>([]);
+  const { alarmas, geocercas } = useAlarmas();
+  const alarmasRuta = useMemo(() => alarmasDeRuta(alarmas, patente), [alarmas, patente]);
+  const minutoRef = useRef(minuto);
+  minutoRef.current = minuto;
   const [listo, setListo] = useState(false);
 
   const visitados = useMemo(() => eventos.filter((e) => tieneCoords(e.punto)), [eventos]);
@@ -106,6 +118,8 @@ export default function MapaRecorrido({
       map.fitBounds(CHILE_BOUNDS);
       Lf.tileLayer(TILE_URL, TILE_OPTS).addTo(map);
       mapRef.current = map;
+      // Primero la de alarmas: las geocercas quedan debajo de la línea y los pines.
+      alarmasCapaRef.current = Lf.layerGroup().addTo(map);
       capaRef.current = Lf.layerGroup().addTo(map);
       setListo(true);
     };
@@ -127,6 +141,8 @@ export default function MapaRecorrido({
       mapRef.current?.remove();
       mapRef.current = null;
       capaRef.current = null;
+      alarmasCapaRef.current = null;
+      pinesAlarmaRef.current = [];
       lineaRef.current = null;
       cabezaRef.current = null;
       camionRef.current = null;
@@ -307,6 +323,39 @@ export default function MapaRecorrido({
     // detrás aunque el reloj no se haya movido. `traza` por los puntos nuevos que
     // llegan cada minuto.
   }, [listo, minuto, visitados, firma, t, traza]);
+
+  // ── Alarmas del GPS ──────────────────────────────────────────────────────
+  // Las geocercas están siempre; cada pin aparece cuando el reloj llega a la hora de
+  // su alarma y se va si el reloj vuelve atrás. Los marcadores se crean una vez por
+  // lectura de alarmas; en cada tick solo entran o salen los que cruzaron el reloj.
+  const mostrarAlarmas = (min: number) => {
+    const capa = alarmasCapaRef.current;
+    if (!capa) return;
+    for (const p of pinesAlarmaRef.current) {
+      const ver = p.min <= min;
+      if (ver === p.puesto) continue;
+      p.puesto = ver;
+      if (ver) p.m.addTo(capa); else capa.removeLayer(p.m);
+    }
+  };
+
+  useEffect(() => {
+    const Lf = LRef.current, capa = alarmasCapaRef.current;
+    if (!listo || !Lf || !capa) return;
+    capa.clearLayers();
+    dibujarGeocercas(Lf, capa, geocercas, t);
+    pinesAlarmaRef.current = alarmasRuta.flatMap((a) => {
+      const m = marcadorAlarma(Lf, a, geocercas, t);
+      return m ? [{ m, min: a.min, puesto: false }] : [];
+    });
+    mostrarAlarmas(minutoRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listo, alarmasRuta, geocercas, t]);
+
+  useEffect(() => {
+    if (listo) mostrarAlarmas(minuto);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listo, minuto]);
 
   // ── Resize (fullscreen, cambio de grilla) ───────────────────────────────
   useEffect(() => {

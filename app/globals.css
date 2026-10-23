@@ -674,6 +674,8 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
 .mapa-camion.desliza { transition: transform .26s linear; }
 .leaflet-zoom-anim .mapa-camion.desliza { transition: none; }
 .mapa-pin svg { display: block; filter: drop-shadow(0 1.5px 2px rgba(0,0,0,.4)); }
+/* Pin de alarma del GPS (MapaLocales): misma sombra que los demás marcadores */
+.mapa-alarma svg { display: block; filter: drop-shadow(0 1.5px 2px rgba(0,0,0,.45)); }
 /* Mismo pin, en chico, para la leyenda. */
 .mapa-leg-pin { flex: 0 0 auto; line-height: 0; }
 .mapa-leg-pin svg { display: block; }
@@ -908,6 +910,12 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
 .tl-pie .tl-pt-f { width: 10px; height: 10px; }
 .tl-pie .tl-pt-f.alta { width: 12px; height: 12px; margin: 0 1px; }
 .tl-grupo-muestra { display: inline-flex; align-items: center; justify-content: center; min-width: 15px; height: 13px; padding: 0 3px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); font-size: 9px; font-weight: 800; color: var(--text); }
+/* Alarma del GPS en la línea de tiempo (TimelineRutas): rombo arriba del track. El
+   giro va en el <i> y no en el contenedor: el tooltip (.has-tip) saldría girado. */
+.tl-alarma { position: absolute; top: -4px; width: 12px; height: 12px; margin-left: -6px; z-index: 3; cursor: help; }
+.tl-alarma i { position: absolute; inset: 1.5px; transform: rotate(45deg); border-radius: 2px; background: var(--warning); box-shadow: 0 0 0 1.5px var(--surface); }
+.tl-alarma.critica i { background: var(--critical); }
+.tl-alarma-muestra { position: relative; top: 0; margin-left: 0; display: inline-block; }
 .tl-gap-muestra { width: 26px; height: 3px; border-radius: 999px; background: repeating-linear-gradient(90deg, var(--warning) 0 4px, transparent 4px 8px); }
 .tl-pie-nota { margin-left: auto; font-style: italic; }
 

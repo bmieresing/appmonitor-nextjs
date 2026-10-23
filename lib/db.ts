@@ -3,7 +3,7 @@
 // Solo datos reales: si faltan las env o no hay fila, lanza error (no hay demo).
 import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { LecturaGps, Snapshot } from "./types";
+import type { LecturaAlarmas, LecturaGps, Snapshot } from "./types";
 
 let client: SupabaseClient | null = null;
 
@@ -85,6 +85,18 @@ export async function getGps(desde: string | null, dia: string | null = null): P
   const { data, error } = await sb.rpc("gps_del_dia", dia ? { desde: valido, dia } : { desde: valido });
   if (error) throw new Error(`Supabase: ${error.message}`);
   return data as LecturaGps;
+}
+
+/**
+ * Alarmas de las reglas de Pegasus de un día (hoy sin `dia`), la más nueva primero,
+ * y las geocercas que vigilan. Las guarda el trigger con la respuesta del Lambda GPS
+ * (supabase/gps_alarma_schema.sql).
+ */
+export async function getAlarmas(dia: string | null = null): Promise<LecturaAlarmas> {
+  const sb = getClient();
+  const { data, error } = await sb.rpc("alarmas_del_dia", dia ? { dia } : {});
+  if (error) throw new Error(`Supabase: ${error.message}`);
+  return data as LecturaAlarmas;
 }
 
 /** Última respuesta exitosa del Lambda GPS (chip "GPS hh:mm" del encabezado). */

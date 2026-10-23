@@ -13,6 +13,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { estiloRuta } from "@/components/CentroColores";
 import { useTheme } from "@/components/ThemeProvider";
+import { useAlarmas } from "@/components/useAlarmas";
+import { alarmasDeRuta, type AlarmaEnRuta } from "@/lib/gps";
 import { estadoColor, semaforo, type Tokens } from "@/lib/theme";
 import { miles } from "@/lib/format";
 import {
@@ -73,6 +75,19 @@ function PopVisitas({ eventos, t }: { eventos: EventoVisita[]; t: Tokens }) {
   );
 }
 
+/** Alarmas del GPS de una ruta agrupadas por minuto: dos reglas que saltan juntas
+ *  (Salida y Llegada sobre la misma geocerca) son una sola marca con las dos en el
+ *  detalle. */
+function marcasAlarma(alarmas: AlarmaEnRuta[]): { min: number; critica: boolean; tip: string }[] {
+  const porMin = new Map<number, AlarmaEnRuta[]>();
+  for (const a of alarmas) porMin.set(Math.floor(a.min), [...(porMin.get(Math.floor(a.min)) ?? []), a]);
+  return [...porMin.entries()].map(([min, as]) => ({
+    min,
+    critica: as.some((a) => a.nivel === "critical"),
+    tip: `⚠ ${hhmm(min)} · alarma GPS\n${as.map((a) => a.regla ?? "Alarma").join("\n")}`,
+  }));
+}
+
 export default function TimelineRutas({
   filas,
   ventana,
@@ -111,6 +126,16 @@ export default function TimelineRutas({
   const grupos = useMemo(
     () => new Map(filas.map((f) => [f.ruta.id, agruparVisitas(f.eventos, ventana)] as const)),
     [filas, ventana],
+  );
+
+  // Alarmas del GPS del camión de cada ruta (por patente), las que caen en la ventana.
+  const { alarmas } = useAlarmas();
+  const alarmasPorRuta = useMemo(
+    () => new Map(filas.map((f) => [
+      f.ruta.id,
+      marcasAlarma(alarmasDeRuta(alarmas, f.ruta.patente)).filter((m) => m.min >= ventana.desde && m.min <= ventana.hasta),
+    ] as const)),
+    [filas, alarmas, ventana],
   );
 
   // Cerrar con click afuera o con Escape.
@@ -226,6 +251,14 @@ export default function TimelineRutas({
                   );
                 })}
 
+                {/* Alarmas del GPS: rombo arriba del track, en la hora en que saltó. */}
+                {(alarmasPorRuta.get(ruta.id) ?? []).map((m) => (
+                  <span key={`a${m.min}`} className={`tl-alarma has-tip${m.critica ? " critica" : ""}`} data-tip={m.tip}
+                    style={{ left: `${posicion(m.min, ventana)}%`, opacity: cursor !== null && m.min > cursor ? 0.4 : 1 }}>
+                    <i />
+                  </span>
+                ))}
+
                 {cursor !== null && (
                   <span className="rep-cursor" style={{ left: `${posicion(cursor, ventana)}%` }} />
                 )}
@@ -255,6 +288,9 @@ export default function TimelineRutas({
         </span>
         <span className="tl-pie-item">
           <span className="tl-grupo-muestra"><b className="tnum">3</b></span> visitas del recuadro · mouse encima para el detalle
+        </span>
+        <span className="tl-pie-item">
+          <span className="tl-alarma tl-alarma-muestra"><i /></span> alarma GPS (geocerca)
         </span>
         <span className="tl-pie-nota">
           La hora es la del registro en la app del chofer, no la de llegada al local.

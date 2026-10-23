@@ -83,7 +83,18 @@ export default function MapaPanel({ fila, traza, ventana, colorCentro, fitKey, r
     ? <MapaLocales puntos={conCoords} colorDe={pintar} alto="100%" traza={traza} patente={ruta.patente}
         fitKey={enModal ? `modal|${ruta.id}` : `${ruta.id}|${fitKey}`} scrollZoom={enModal} />
     : <MapaRecorrido rutaId={enModal ? `modal|${ruta.id}` : ruta.id} eventos={fila.eventos} pendientes={pendientes}
-        minuto={minuto} alto="100%" traza={traza?.puntos} scrollZoom={enModal} />;
+        minuto={minuto} alto="100%" traza={traza?.puntos} patente={ruta.patente} scrollZoom={enModal} />;
+
+  // Play propio: solo si hay algo que reproducir y no corre el del tramo. Va en el
+  // encabezado del panel y en el de la ventana grande.
+  const botonPlay = jornada && !repTramo && (
+    <button className={`icon-btn mapa-agrandar${propio ? " active" : ""}`}
+      onClick={() => setPropio((v) => !v)}
+      title={propio ? "Volver al mapa del día" : "Reproducir el recorrido de esta ruta"}
+      aria-label={propio ? "Volver al mapa del día" : "Reproducir el recorrido"}>
+      {propio ? "⏹" : "▶"}
+    </button>
+  );
 
   const conteo = rep && (
     <span className="chip">
@@ -107,15 +118,7 @@ export default function MapaPanel({ fila, traza, ventana, colorCentro, fitKey, r
             <b className="tnum" style={{ color: arrancada ? semaforo(pct, t) : "var(--muted)" }}>{pct}%</b>
             <span className="mapa-panel-det tnum">{detalle}</span>
           </div>
-          {/* Play propio: solo si hay algo que reproducir y no corre el del tramo. */}
-          {jornada && !repTramo && (
-            <button className={`icon-btn mapa-agrandar${propio ? " active" : ""}`}
-              onClick={() => setPropio((v) => !v)}
-              title={propio ? "Volver al mapa del día" : "Reproducir el recorrido de esta ruta"}
-              aria-label={propio ? "Volver al mapa del día" : "Reproducir el recorrido"}>
-              {propio ? "⏹" : "▶"}
-            </button>
-          )}
+          {botonPlay}
           <BotonAgrandar onClick={() => setGrande(true)} />
         </div>
       </div>
@@ -137,6 +140,7 @@ export default function MapaPanel({ fila, traza, ventana, colorCentro, fitKey, r
             <div className="mapa-panel-ruta" style={estiloRuta(colorCentro(ruta.centro))}>{ruta.subtitulo}</div>
           )}
           onClose={() => setGrande(false)}
+          acciones={botonPlay}
           pie={rep ? (
             <>
               <ControlesReproduccion rep={rep}>{conteo}</ControlesReproduccion>

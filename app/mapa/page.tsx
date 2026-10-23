@@ -16,7 +16,7 @@
 // Todo sale del detalle por local que ya trae el snapshot (lib/mapa.ts): no viajan
 // datos nuevos más allá de las coordenadas y la hora de cada visita.
 import React, { useEffect, useMemo, useState } from "react";
-import { PinLeyenda } from "@/components/MapaLocales";
+import { AlarmaLeyenda, PinLeyenda } from "@/components/MapaLocales";
 import FullscreenToggle from "@/components/FullscreenToggle";
 import TimelineRutas from "@/components/TimelineRutas";
 import ReproduccionRutas from "@/components/ReproduccionRutas";
@@ -207,6 +207,12 @@ export default function MapaPage() {
           <span className="donut-leg-item">
             <PinLeyenda color={t.textSecondary} simbolo="!" />
             <span className="donut-leg-name">Emergencia</span>
+          </span>
+          {/* Alarmas de las reglas de Pegasus (geocercas): dónde estaba el camión */}
+          <span className="mapa-leyenda-sep" />
+          <span className="donut-leg-item">
+            <AlarmaLeyenda color={t.warning} />
+            <span className="donut-leg-name">Alarma GPS</span>
           </span>
         </div>
       </div>

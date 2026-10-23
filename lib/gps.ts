@@ -5,8 +5,8 @@
 // Las trazas llegan por useGps(), indexadas por patente NORMALIZADA; cada punto es
 // un reporte crudo del dispositivo: [minutos desde 00:00 hora Chile, lat, lon],
 // ordenados por la hora del GPS (ver types.ts).
-import type { Gps, PuntoGps, TrazaGps } from "./types";
-import { hhmm, duracion } from "./tiempo";
+import type { AlarmaGps, Gps, PuntoGps, TrazaGps } from "./types";
+import { aMinutos, hhmm, duracion } from "./tiempo";
 
 /** Minutos sin reportar a partir de los cuales la posición deja de ser "actual" y
  *  el camión se dibuja atenuado. Tiene que pasar la hora: un camión DETENIDO
@@ -150,6 +150,23 @@ export function camionSvg(color: string): string {
     `<circle cx="17.2" cy="16.6" r="1.55" fill="#ffffff" stroke="${color}" stroke-width=".9"/>` +
     `</svg>`
   );
+}
+
+/** Alarma del GPS con su minuto del día (hora Chile), para ubicarla en el reloj de
+ *  la reproducción y en la línea de tiempo. */
+export type AlarmaEnRuta = AlarmaGps & { min: number };
+
+/** Las alarmas del camión de una ruta (por patente normalizada), en orden de hora.
+ *  Sin patente, ninguna: la pestaña Global no tiene camión. */
+export function alarmasDeRuta(alarmas: AlarmaGps[], patente: string | null | undefined): AlarmaEnRuta[] {
+  const pat = normalizarPatente(patente);
+  if (!pat) return [];
+  const salida: AlarmaEnRuta[] = [];
+  for (const a of alarmas) {
+    const min = aMinutos(a.hora);
+    if (min !== null && normalizarPatente(a.patente) === pat) salida.push({ ...a, min });
+  }
+  return salida.sort((x, y) => x.min - y.min);
 }
 
 export function popupCamion(patente: string, ultimo: PuntoGps, ahora: number): string {

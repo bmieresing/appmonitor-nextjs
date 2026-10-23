@@ -14,9 +14,11 @@ import { useTheme } from "./ThemeProvider";
 import { miles } from "@/lib/format";
 import { estadoColor } from "@/lib/theme";
 import type { PuntoMapa } from "@/lib/mapa";
-import type { TrazaGps } from "@/lib/types";
-import { CAMION_D, CIERRE_DIA, camionSvg, minutoAhora, popupCamion, vigente } from "@/lib/gps";
+import type { AlarmaGps, GeocercaGps, TrazaGps } from "@/lib/types";
+import type { Tokens } from "@/lib/theme";
+import { CAMION_D, CIERRE_DIA, alarmasDeRuta, camionSvg, minutoAhora, popupCamion, vigente } from "@/lib/gps";
 import { useDia } from "./DiaContext";
+import { useAlarmas } from "./useAlarmas";
 
 // Tiles de OpenStreetMap, sin key. Antes eran de CARTO, que desde el 23-09-2026
 // estampa "API KEY REQUIRED" en cada tile pedida sin key. OSM no tiene variante
@@ -89,6 +91,73 @@ export function PinLeyenda({ color, simbolo }: { color: string; simbolo?: string
   );
 }
 
+// Pin de alarma del GPS (reglas de Pegasus): rombo con "!" y el mismo borde blanco
+// que los demás marcadores. Rombo a propósito: la gota es un local y el círculo, el
+// camión; esto marca DÓNDE estaba el camión cuando saltó la alarma. Ámbar o rojo
+// según el nivel de la regla, como el aviso de las cards.
+export const ALARMA_D = 24;
+
+export function colorAlarma(nivel: string | null, t: Tokens): string {
+  return nivel === "critical" ? t.critical : t.warning;
+}
+
+export function alarmaSvg(color: string, d = ALARMA_D): string {
+  return (
+    `<svg width="${d}" height="${d}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">` +
+    `<path d="M12 1.6 22.4 12 12 22.4 1.6 12Z" fill="${color}" stroke="#ffffff" stroke-width="1.8" stroke-linejoin="round"/>` +
+    `<path d="M12 7.2v6" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round"/>` +
+    `<circle cx="12" cy="16.6" r="1.4" fill="#ffffff"/></svg>`
+  );
+}
+
+function popupAlarma(a: AlarmaGps, geocerca: GeocercaGps | undefined): string {
+  const filas: [string, string][] = [["Hora", esc(a.hora)], ["Camión", esc(a.patente ?? "—")]];
+  if (a.evento && geocerca) filas.push(["Geocerca", `${a.evento === "entra" ? "Entra a" : "Sale de"} ${esc(geocerca.nombre ?? geocerca.id)}`]);
+  if (a.nivel && a.nivel !== "info") filas.push(["Nivel", esc(a.nivel)]);
+  return (
+    `<div class="mapa-pop">` +
+    `<div class="mapa-pop-tit">⚠️ ${esc(a.regla ?? "Alarma GPS")}</div>` +
+    (a.mensaje ? `<div class="mapa-pop-id">${esc(a.mensaje)}</div>` : "") +
+    filas.map(([k, v]) => `<div class="mapa-pop-row"><span>${k}</span><b>${v}</b></div>`).join("") +
+    `</div>`
+  );
+}
+
+/** Polígonos de las geocercas vigiladas, punteados en ámbar con su nombre al pasar
+ *  el mouse. Los comparten el mapa estático y la reproducción. */
+export function dibujarGeocercas(Lf: typeof L, capa: L.LayerGroup, geocercas: GeocercaGps[], t: Tokens) {
+  for (const g of geocercas) {
+    Lf.geoJSON(g.geometria as GeoJSON.Geometry, {
+      style: { color: t.warning, weight: 1.6, opacity: 0.9, fillColor: t.warning, fillOpacity: 0.1, dashArray: "5 4" },
+    })
+      .bindTooltip(esc(g.nombre ?? `Geocerca ${g.id}`), { sticky: true })
+      .addTo(capa);
+  }
+}
+
+/** Marcador de una alarma (sin agregar a ninguna capa). Solo las que traen posición. */
+export function marcadorAlarma(Lf: typeof L, a: AlarmaGps, geocercas: GeocercaGps[], t: Tokens): L.Marker | null {
+  if (a.lat == null || a.lon == null) return null;
+  const geocerca = a.geocerca != null ? geocercas.find((g) => g.id === a.geocerca) : undefined;
+  return Lf.marker([a.lat, a.lon], {
+    icon: Lf.divIcon({
+      className: "mapa-alarma", html: alarmaSvg(colorAlarma(a.nivel, t)),
+      iconSize: [ALARMA_D, ALARMA_D], iconAnchor: [ALARMA_D / 2, ALARMA_D / 2], popupAnchor: [0, -ALARMA_D / 2],
+    }),
+    zIndexOffset: 1500,   // sobre los locales, bajo el camión
+    riseOnHover: true,
+  }).bindPopup(popupAlarma(a, geocerca), { closeButton: true });
+}
+
+/** El pin de alarma, en chico, para la leyenda. */
+export function AlarmaLeyenda({ color }: { color: string }) {
+  return (
+    <span className="mapa-leg-pin" style={{ width: 15, height: 15 }}
+      // El SVG es una constante del módulo: no hay entrada de usuario.
+      dangerouslySetInnerHTML={{ __html: alarmaSvg(color, 15) }} />
+  );
+}
+
 export default function MapaLocales({
   puntos,
   colorDe,
@@ -121,6 +190,8 @@ export default function MapaLocales({
   const mapRef = useRef<L.Map | null>(null);
   const capaRef = useRef<L.LayerGroup | null>(null);
   const gpsRef = useRef<L.LayerGroup | null>(null);
+  const alarmasRef = useRef<L.LayerGroup | null>(null);
+  const { alarmas, geocercas } = useAlarmas();
   const marcasRef = useRef<Map<number, L.Marker>>(new Map());
   const [listo, setListo] = useState(false);
 
@@ -149,6 +220,9 @@ export default function MapaLocales({
       mapRef.current = map;
       // Capa propia para el GPS: los pines se refrescan con cada poll del snapshot
       // y la traza con cada snapshot nuevo; separadas, ninguna rehace a la otra.
+      // Las alarmas (geocercas + pines) van en otra, que se agrega primero: los
+      // polígonos quedan debajo de todo (los marcadores se ordenan por zIndexOffset).
+      alarmasRef.current = Lf.layerGroup().addTo(map);
       gpsRef.current = Lf.layerGroup().addTo(map);
       capaRef.current = Lf.layerGroup().addTo(map);
       setListo(true);
@@ -172,6 +246,7 @@ export default function MapaLocales({
       mapRef.current = null;
       capaRef.current = null;
       gpsRef.current = null;
+      alarmasRef.current = null;
       marcasRef.current.clear();
     };
     // scrollZoom se fija al montar: no cambia en vivo en ninguna vista.
@@ -247,6 +322,18 @@ export default function MapaLocales({
       .bindPopup(() => popupCamion(patente ?? "", ultimo, ahora()), { closeButton: true })
       .addTo(capa);
   }, [listo, traza, patente, t, dia]);
+
+  // ── Alarmas del GPS: geocercas vigiladas + dónde saltó cada alarma ──────
+  // Las geocercas se dibujan todas (son pocas y cada una queda donde está; las de
+  // otra región simplemente no se ven). Los pines, solo los del camión de esta ruta.
+  // No entran al encuadre: el mapa sigue centrado en los locales y el recorrido.
+  useEffect(() => {
+    const Lf = LRef.current, capa = alarmasRef.current;
+    if (!listo || !Lf || !capa) return;
+    capa.clearLayers();
+    dibujarGeocercas(Lf, capa, geocercas, t);
+    for (const a of alarmasDeRuta(alarmas, patente)) marcadorAlarma(Lf, a, geocercas, t)?.addTo(capa);
+  }, [listo, alarmas, geocercas, patente, t]);
 
   // ── Encuadre ────────────────────────────────────────────────────────────
   // Cada cambio de filtro tiene que acercar a lo que quedó visible. `puntos` se
