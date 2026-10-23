@@ -48,9 +48,10 @@ export function duracion(min: number): string {
 }
 
 // ── Ventana horaria ──────────────────────────────────────────────────────
-// El eje no es el día completo: arranca en la primera visita y termina en la
-// última, redondeado a horas enteras. A media mañana eso mantiene los puntos
-// separados, en vez de aplastarlos contra el borde izquierdo de un eje 00-24.
+// El eje no es el día completo: arranca en la hora entera de la primera visita y
+// termina justo en el último dato. A media mañana eso mantiene los puntos
+// separados, en vez de aplastarlos contra el borde izquierdo de un eje 00-24, y
+// nunca muestra horas que todavía no ocurrieron.
 
 export interface Ventana {
   desde: number;    // minuto del borde izquierdo (hora entera)
@@ -65,14 +66,12 @@ export function ventanaDe(minutos: number[], minHoras = 4): Ventana {
   const fin = ahora.getHours() * 60 + ahora.getMinutes();
   const base = minutos.length > 0 ? minutos : [Math.max(0, fin - minHoras * 60), fin];
   let desde = Math.floor(Math.min(...base) / 60) * 60;
-  // El borde derecho es la hora SIGUIENTE a la última visita, no su techo: con
-  // `ceil`, una visita a las 12:00 en punto cerraría el eje justo encima de ella y
-  // quedaría pegada al borde, sin lugar donde leerse.
-  let hasta = Math.floor(Math.max(...base) / 60) * 60 + 60;
-  // Ancho mínimo: se crece hacia la derecha, y solo hacia atrás si topa con las 24 h.
+  // El borde derecho es el último dato, sin redondear: lo que viene después
+  // todavía no pasó y el eje no lo ofrece.
+  const hasta = Math.max(...base);
+  // Ancho mínimo: se crece hacia ATRÁS (a una hora entera), nunca hacia el futuro.
   if (hasta - desde < minHoras * 60) {
-    hasta = Math.min(24 * 60, desde + minHoras * 60);
-    desde = Math.max(0, hasta - minHoras * 60);
+    desde = Math.max(0, Math.floor((hasta - minHoras * 60) / 60) * 60);
   }
   const horas: number[] = [];
   for (let m = desde; m <= hasta; m += 60) horas.push(m);

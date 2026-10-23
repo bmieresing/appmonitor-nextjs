@@ -670,9 +670,10 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
 /* Reproducción: el camión se desliza entre ticks del reloj (TICK_MS = 260 ms en
    useReproduccion) en vez de saltar. Es una TRANSICIÓN del transform que Leaflet
    ya pone para ubicarlo, no una animación (ver el aviso de .mapa-pin más abajo).
-   Se apaga durante el zoom: si no, el camión llega tarde a su lugar. */
+   Se apaga durante el zoom quitando la clase (MapaRecorrido, zoomstart/zoomend):
+   el reposicionamiento del final del zoom ocurre fuera de .leaflet-zoom-anim, así
+   que una regla CSS no alcanza a cubrirlo. */
 .mapa-camion.desliza { transition: transform .26s linear; }
-.leaflet-zoom-anim .mapa-camion.desliza { transition: none; }
 .mapa-pin svg { display: block; filter: drop-shadow(0 1.5px 2px rgba(0,0,0,.4)); }
 /* Pin de alarma del GPS (MapaLocales): misma sombra que los demás marcadores */
 .mapa-alarma svg { display: block; filter: drop-shadow(0 1.5px 2px rgba(0,0,0,.45)); }

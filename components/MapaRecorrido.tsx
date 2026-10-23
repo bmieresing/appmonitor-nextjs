@@ -74,6 +74,7 @@ export default function MapaRecorrido({
   const gpsIdxRef = useRef(-1);   // reportes ya dibujados en la línea larga
   const gpsTrazaRef = useRef<PuntoGps[] | null>(null);   // traza con la que se dibujó
   const relojPrevRef = useRef<number | null>(null);      // para detectar saltos del reloj
+  const zoomRef = useRef(false);   // hay un zoom en curso: el camión no se desliza
   // marcador + su hora (null = pendiente) + la fase ya pintada
   const marcasRef = useRef<{ m: L.Marker; min: number | null; punto: PuntoMapa; fase: Fase | null }[]>([]);
   // Alarmas del GPS: capa propia (geocercas + pines) y cada pin con su minuto y si
@@ -118,6 +119,22 @@ export default function MapaRecorrido({
       map.fitBounds(CHILE_BOUNDS);
       Lf.tileLayer(TILE_URL, TILE_OPTS).addTo(map);
       mapRef.current = map;
+      // El deslizamiento del camión (clase `desliza`) se apaga durante TODO el zoom:
+      // al terminar, Leaflet recalcula el origen de la capa y le pone al camión un
+      // transform nuevo; con la transición encendida se lo veía viajar y volver.
+      // Se devuelve en zoomend, cuando la posición final ya está aplicada.
+      map.on("zoomstart", () => {
+        zoomRef.current = true;
+        camionRef.current?.getElement()?.classList.remove("desliza");
+      });
+      map.on("zoomend", () => {
+        zoomRef.current = false;
+        const el = camionRef.current?.getElement();
+        if (el) {
+          void el.offsetWidth;   // fuerza el reflow: la posición final entra sin animar
+          el.classList.add("desliza");
+        }
+      });
       // Primero la de alarmas: las geocercas quedan debajo de la línea y los pines.
       alarmasCapaRef.current = Lf.layerGroup().addTo(map);
       capaRef.current = Lf.layerGroup().addTo(map);
@@ -306,7 +323,7 @@ export default function MapaRecorrido({
           if (salto) el?.classList.remove("desliza");
           cam.setLatLng(pos);
           cam.setOpacity(1);
-          if (salto && el) {
+          if (salto && el && !zoomRef.current) {
             void el.offsetWidth;   // fuerza el reflow: la posición nueva entra sin animar
             el.classList.add("desliza");
           }

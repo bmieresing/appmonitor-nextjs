@@ -21,7 +21,7 @@ import { estiloRuta } from "./CentroColores";
 import { useTheme } from "./ThemeProvider";
 import { estadoColor, semaforo } from "@/lib/theme";
 import { miles } from "@/lib/format";
-import { hhmm, type FilaTiempo, type Ventana } from "@/lib/tiempo";
+import { hhmm, ventanaDe, type FilaTiempo, type Ventana } from "@/lib/tiempo";
 import { tieneCoords, type Panel, type PuntoMapa } from "@/lib/mapa";
 import { finTraza, inicioMovimiento } from "@/lib/gps";
 import type { TrazaGps } from "@/lib/types";
@@ -54,6 +54,12 @@ export default function MapaPanel({ fila, traza, ventana, colorCentro, fitKey, r
 
   const jornada = useMemo(() => jornadaDe(fila, traza), [fila, traza]);
   const repPropio = useReproduccion(jornada?.inicio ?? 0, jornada?.fin ?? -1, propio && !repTramo);
+  // Con el reloj propio, la barra de la ventana grande va sobre el eje de ESTA
+  // ruta (de su salida a su último dato); con el del tramo, sobre el eje común.
+  const ventanaPropia = useMemo(
+    () => (jornada ? ventanaDe([jornada.inicio, jornada.fin], 1) : ventana),
+    [jornada, ventana],
+  );
 
   // Al arrancar el reloj del tramo, cada panel suelta el suyo: al terminar vuelven
   // todos a estático, no a una reproducción propia que nadie pidió de nuevo.
@@ -145,7 +151,7 @@ export default function MapaPanel({ fila, traza, ventana, colorCentro, fitKey, r
             <>
               <ControlesReproduccion rep={rep}>{conteo}</ControlesReproduccion>
               {/* La línea de tiempo de esta ruta como barra del video. */}
-              <TimelineRutas filas={filas} ventana={ventana} colorCentro={colorCentro} sinEtiqueta
+              <TimelineRutas filas={filas} ventana={repTramo ? ventana : ventanaPropia} colorCentro={colorCentro} sinEtiqueta
                 cursor={rep.minuto} onSaltar={rep.irA} />
             </>
           ) : undefined}

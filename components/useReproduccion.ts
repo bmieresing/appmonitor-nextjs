@@ -70,7 +70,12 @@ export function useReproduccion(inicio: number, fin: number, activo = true): Rep
 
   const reiniciar = useCallback(() => { setMinuto(inicio); setPlaying(false); }, [inicio]);
 
-  const irA = useCallback((m: number) => { setMinuto(m); setPlaying(false); }, []);
+  // Acotado a la jornada: un click en el eje más allá del último dato no puede
+  // llevar el reloj a una hora que todavía no ocurrió.
+  const irA = useCallback((m: number) => {
+    setMinuto(Math.max(inicio, Math.min(fin, m)));
+    setPlaying(false);
+  }, [inicio, fin]);
 
   return { minuto, playing, vel, terminado, setVel, alternar, reiniciar, irA };
 }
