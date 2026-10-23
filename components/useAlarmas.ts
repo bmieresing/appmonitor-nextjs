@@ -1,6 +1,6 @@
 "use client";
 // Alarmas del GPS del día (reglas de Pegasus) y las geocercas que vigilan, para los
-// mapas. Poll de 60 s, como useGps.
+// mapas, la pestaña Alertas y los avisos. Poll de 60 s, como useGps.
 //
 // La vista Mapa monta decenas de MapaLocales (un panel por ruta) y cada uno pide
 // sus alarmas: en vez de un fetch por panel hay UNA lectura compartida por día,
@@ -31,9 +31,11 @@ async function leer(clave: string, f: Fuente) {
   }
 }
 
-export function useAlarmas(): LecturaAlarmas {
+/** @param soloHoy Ignora el día del historial y lee siempre hoy en vivo: lo usan los
+ *                 avisos (AvisosAlarma), que son de lo que está pasando ahora. */
+export function useAlarmas(soloHoy = false): LecturaAlarmas {
   const { dia } = useDia();
-  const clave = dia ?? "";
+  const clave = soloHoy ? "" : dia ?? "";
   const [valor, setValor] = useState<LecturaAlarmas>(() => fuentes.get(clave)?.valor ?? VACIO);
 
   useEffect(() => {

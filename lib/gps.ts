@@ -5,7 +5,7 @@
 // Las trazas llegan por useGps(), indexadas por patente NORMALIZADA; cada punto es
 // un reporte crudo del dispositivo: [minutos desde 00:00 hora Chile, lat, lon],
 // ordenados por la hora del GPS (ver types.ts).
-import type { AlarmaGps, Gps, PuntoGps, TrazaGps } from "./types";
+import type { AlarmaGps, GeocercaGps, Gps, PuntoGps, TrazaGps } from "./types";
 import { aMinutos, hhmm, duracion } from "./tiempo";
 
 /** Minutos sin reportar a partir de los cuales la posición deja de ser "actual" y
@@ -150,6 +150,24 @@ export function camionSvg(color: string): string {
     `<circle cx="17.2" cy="16.6" r="1.55" fill="#ffffff" stroke="${color}" stroke-width=".9"/>` +
     `</svg>`
   );
+}
+
+/** "Entra a <geocerca>" / "Sale de <geocerca>", o null si la alarma no es de geocerca.
+ *  Texto plano: quien lo pinte en HTML crudo lo escapa. */
+export function textoGeocerca(a: AlarmaGps, geocercas: GeocercaGps[]): string | null {
+  if (!a.evento || a.geocerca == null) return null;
+  const g = geocercas.find((x) => x.id === a.geocerca);
+  return `${a.evento === "entra" ? "Entra a" : "Sale de"} ${g?.nombre ?? `geocerca ${a.geocerca}`}`;
+}
+
+/** Nombre del chofer de cada camión del día, por patente normalizada (del snapshot). */
+export function choferesPorPatente(carrusel: { chofer: string; patente?: string | null }[]): Map<string, string> {
+  const m = new Map<string, string>();
+  for (const c of carrusel) {
+    const p = normalizarPatente(c.patente);
+    if (p && !m.has(p)) m.set(p, c.chofer);
+  }
+  return m;
 }
 
 /** Alarma del GPS con su minuto del día (hora Chile), para ubicarla en el reloj de

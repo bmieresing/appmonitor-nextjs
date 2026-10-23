@@ -13,6 +13,7 @@ import { DiaProvider, useDia } from "./DiaContext";
 import ChipGps from "./ChipGps";
 import SelectorDia from "./SelectorDia";
 import MenuUsuario from "./MenuUsuario";
+import AvisosAlarma from "./AvisosAlarma";
 import { ZoomProvider, useZoom } from "./Zoom";
 
 const VISTAS: [string, string, string][] = [
@@ -25,6 +26,7 @@ const VISTAS: [string, string, string][] = [
   ["Estadisticas", "/estadisticas", "📊"],
   ["Carrusel", "/carrusel", "🎠"],
   ["Carrusel Zonas", "/carrusel-zonas", "🔄"],
+  ["Alertas", "/alertas", "🚨"],
   // Parámetros no va en la nav: vive en el menú de usuario (MenuUsuario).
 ];
 
@@ -118,6 +120,8 @@ function Marco({ children }: { children: React.ReactNode }) {
     <div className="app">
       <TopBar />
       <Content>{children}</Content>
+      {/* Fuera de .content: en /pantalla no le toca el zoom de la página. */}
+      <AvisosAlarma />
     </div>
   );
 }

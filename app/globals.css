@@ -986,10 +986,41 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
   100% { transform: scale(3.6); opacity: 0; }
 }
 
+/* Aviso de alarma GPS recién llegada (AvisosAlarma): esquina inferior derecha, sobre
+   todo —incluida la ventana grande del mapa (z 2000)—, en todas las páginas y en la
+   tele igual. Tapa lo que haya debajo: dura unos segundos. La barra de abajo se
+   vacía en lo que dura el aviso (su duración la pone el componente). */
+.avisos {
+  position: fixed; right: 16px; bottom: 16px; z-index: 3000;
+  display: flex; flex-direction: column; gap: 10px; width: min(360px, calc(100vw - 32px));
+}
+.aviso {
+  position: relative; overflow: hidden; display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px 14px 14px; text-align: left; font: inherit; color: var(--text); cursor: pointer;
+  background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--warning);
+  border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.25);
+  animation: aviso-entra .28s ease-out;
+}
+.aviso.critico { border-left-color: var(--critical); }
+.aviso-ic { font-size: 18px; line-height: 1.2; }
+.aviso-cuerpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.aviso-tit { font-weight: 700; font-size: 14px; }
+.aviso-det { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aviso-det b { color: var(--text); }
+.aviso-hora { font-size: 12px; font-weight: 600; color: var(--muted); }
+.aviso-barra {
+  position: absolute; left: 0; bottom: 0; height: 3px; width: 100%;
+  background: var(--warning); transform-origin: left; animation: aviso-tiempo linear forwards;
+}
+.aviso.critico .aviso-barra { background: var(--critical); }
+@keyframes aviso-entra { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes aviso-tiempo { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
 @media (prefers-reduced-motion: reduce) {
   .mapa-pin-actual svg, .mapa-pin-in svg, .mapa-pin-actual.mapa-pin-in svg { animation: none; }
   .pin-onda { display: none; }
   .rep-cursor { transition: none; }
+  .aviso { animation: none; }
 }
 
 @media (max-width: 900px) {
