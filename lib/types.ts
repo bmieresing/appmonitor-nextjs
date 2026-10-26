@@ -271,6 +271,21 @@ export interface GeocercaGps {
   geometria: { type: string; coordinates: unknown };   // GeoJSON de Pegasus
 }
 
+/** Un camión en un día según su odómetro (rpc odometro_del_dia). */
+export interface OdometroCamion {
+  patente: string;      // normalizada
+  km: number;
+  odo_ini_km: number;   // primer reporte del día con odómetro
+  odo_fin_km: number;   // último
+  hora_ini: string;     // "HH:MM" de esas dos lecturas
+  hora_fin: string;
+}
+
+export interface LecturaOdometro {
+  dia: string;
+  camiones: OdometroCamion[];   // el que más anduvo primero
+}
+
 export interface LecturaAlarmas {
   dia: string;
   alarmas: AlarmaGps[];          // la más nueva primero

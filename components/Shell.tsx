@@ -2,7 +2,7 @@
 // Cáscara profesional: barra superior con marca + navegación horizontal +
 // indicador de última actualización, refresh y menú de usuario (tema, zoom, logout). La
 // navegación vive arriba (no en un sidebar) para no robar ancho al dashboard.
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -16,19 +16,85 @@ import MenuUsuario from "./MenuUsuario";
 import AvisosAlarma from "./AvisosAlarma";
 import { ZoomProvider, useZoom } from "./Zoom";
 
-const VISTAS: [string, string, string][] = [
+type Vista = [string, string, string];
+
+const VISTAS: Vista[] = [
   ["Global", "/global", "🌐"],
   ["Santiago", "/santiago", "🏙️"],
   ["Regiones", "/regiones", "🗺️"],
   ["Mapa", "/mapa", "📍"],
   ["Recolecciones", "/recolecciones", "✅"],
-  // Rendimiento no es pestaña propia: es una sección de Estadísticas.
-  ["Estadisticas", "/estadisticas", "📊"],
   ["Carrusel", "/carrusel", "🎠"],
   ["Carrusel Zonas", "/carrusel-zonas", "🔄"],
-  ["Alertas", "/alertas", "🚨"],
   // Parámetros no va en la nav: vive en el menú de usuario (MenuUsuario).
 ];
+
+// Lo que se consulta o revisa, no lo que se mira en vivo: un desplegable al final
+// de la nav, para que la barra no baje a una segunda fila.
+const REPORTES: Vista[] = [
+  // Rendimiento no es pestaña propia: es una sección de Estadísticas.
+  ["Estadísticas", "/estadisticas", "📊"],
+  ["Alertas", "/alertas", "🚨"],
+  ["Flota", "/flota", "🚚"],
+];
+
+/** Desplegable de la nav. El menú va con posición fija, calculada desde el botón:
+ *  la nav tiene scroll horizontal y recortaría uno anclado adentro. Se cierra con
+ *  clic afuera, con Escape, al elegir una vista o si la página scrollea. */
+function NavGrupo({ label, icono, vistas }: { label: string; icono: string; vistas: Vista[] }) {
+  const pathname = usePathname();
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  const pop = useRef<HTMLDivElement>(null);
+  const activo = vistas.some(([, href]) => href === pathname);
+  const actual = vistas.find(([, href]) => href === pathname);
+
+  useEffect(() => {
+    if (!pos) return;
+    const fuera = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (!btn.current?.contains(t) && !pop.current?.contains(t)) setPos(null);
+    };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setPos(null); };
+    const cerrar = () => setPos(null);
+    document.addEventListener("mousedown", fuera);
+    document.addEventListener("keydown", esc);
+    window.addEventListener("resize", cerrar);
+    window.addEventListener("scroll", cerrar, true);
+    return () => {
+      document.removeEventListener("mousedown", fuera);
+      document.removeEventListener("keydown", esc);
+      window.removeEventListener("resize", cerrar);
+      window.removeEventListener("scroll", cerrar, true);
+    };
+  }, [pos]);
+
+  const alternar = () => {
+    if (pos) { setPos(null); return; }
+    const r = btn.current?.getBoundingClientRect();
+    if (r) setPos({ top: r.bottom + 6, left: r.left });
+  };
+
+  return (
+    <>
+      <button ref={btn} className={`nav-item nav-grupo${activo ? " active" : ""}`} onClick={alternar}
+        aria-haspopup="menu" aria-expanded={!!pos}>
+        <span className="ic">{actual ? actual[2] : icono}</span> {actual ? `${label} · ${actual[0]}` : label}
+        <span className="nav-grupo-chev">▾</span>
+      </button>
+      {pos && (
+        <div ref={pop} className="menu-usr-pop nav-grupo-pop" role="menu" style={{ top: pos.top, left: pos.left }}>
+          {vistas.map(([l, href, ic]) => (
+            <Link key={href} href={href} role="menuitem" onClick={() => setPos(null)}
+              className={`menu-usr-item${pathname === href ? " active" : ""}`}>
+              <span className="ic">{ic}</span> {l}
+            </Link>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
 
 function TopBar() {
   const pathname = usePathname();
@@ -50,6 +116,7 @@ function TopBar() {
             <span className="ic">{ic}</span> {label}
           </Link>
         ))}
+        <NavGrupo label="Reportes" icono="📑" vistas={REPORTES} />
       </nav>
       <SelectorDia />
       {/* Mirando un día del historial no hay nada en vivo: ni GPS al minuto ni

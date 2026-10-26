@@ -3,7 +3,7 @@
 // Solo datos reales: si faltan las env o no hay fila, lanza error (no hay demo).
 import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { LecturaAlarmas, LecturaGps, Snapshot } from "./types";
+import type { LecturaAlarmas, LecturaGps, LecturaOdometro, Snapshot } from "./types";
 
 let client: SupabaseClient | null = null;
 
@@ -97,6 +97,18 @@ export async function getAlarmas(dia: string | null = null): Promise<LecturaAlar
   const { data, error } = await sb.rpc("alarmas_del_dia", dia ? { dia } : {});
   if (error) throw new Error(`Supabase: ${error.message}`);
   return data as LecturaAlarmas;
+}
+
+/**
+ * Km y odómetro inicial/final de cada camión en un día (hoy sin `dia`), de
+ * monitor_gps_odometro_dia: el resumen permanente que arma un trigger sobre los
+ * puntos GPS (supabase/gps_odometro_dia_schema.sql). Lo usa la pestaña Flota.
+ */
+export async function getOdometro(dia: string | null = null): Promise<LecturaOdometro> {
+  const sb = getClient();
+  const { data, error } = await sb.rpc("odometro_del_dia", dia ? { dia } : {});
+  if (error) throw new Error(`Supabase: ${error.message}`);
+  return data as LecturaOdometro;
 }
 
 /** Última respuesta exitosa del Lambda GPS (chip "GPS hh:mm" del encabezado). */
