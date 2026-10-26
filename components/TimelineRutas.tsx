@@ -197,7 +197,7 @@ export default function TimelineRutas({
                 </div>
               )}
 
-              <div className={`tl-track${onSaltar ? " tl-track-click" : ""}`} onClick={clickTrack}
+              <div className={`tl-track${onSaltar ? " tl-track-click" : ""}${detenciones?.get(ruta.id)?.length ? " con-gps" : ""}`} onClick={clickTrack}
                 title={onSaltar ? "Click para saltar a esa hora" : undefined}>
                 {ventana.horas.map((h) => (
                   <span key={h} className="tl-guia" style={{ left: `${posicion(h, ventana)}%` }} />
@@ -215,9 +215,10 @@ export default function TimelineRutas({
                   />
                 )}
 
-                {/* Detenciones del camión según el GPS: franja al pie del track, de
-                    cuándo paró a cuándo volvió a andar. Independientes de las visitas
-                    (el chofer puede registrarlas después). */}
+                {/* Detenciones del camión según el GPS: franja en su propia fila, debajo
+                    de las visitas (encima las tapaba), de cuándo paró a cuándo volvió a
+                    andar. Independientes de las visitas (el chofer puede registrarlas
+                    después). */}
                 {(detenciones?.get(ruta.id) ?? []).map((d) => {
                   const fin = finDetencion(d, ahora ?? minutoAhora());
                   const ini = Math.max(d.desde, ventana.desde), hasta = Math.min(fin, ventana.hasta);

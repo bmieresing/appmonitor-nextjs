@@ -862,8 +862,12 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
 .tl-gap::before { content: ""; position: absolute; inset: -9px 0; }  /* área de hover cómoda */
 /* Camión detenido según el GPS: franja al pie del track, debajo de las visitas,
    partida en tres estados del motor (eventos de encendido/apagado del equipo). */
-/* Sin overflow: hidden: recortaría el tooltip (.has-tip se dibuja afuera). */
-.tl-detenida { position: absolute; bottom: 0; height: 8px; cursor: help; }
+/* Va debajo del track, en una fila propia: encima de las visitas las tapaba. El track
+   con detenciones (.con-gps) deja ese lugar, y las guías y el cursor lo cruzan. Sin
+   overflow: hidden: recortaría el tooltip (.has-tip se dibuja afuera). */
+.tl-track.con-gps { margin-bottom: 14px; }
+.tl-track.con-gps .tl-guia, .tl-track.con-gps .rep-cursor { bottom: -14px; }
+.tl-detenida { position: absolute; top: calc(100% + 4px); height: 8px; cursor: help; }
 .tl-motor { position: absolute; top: 0; bottom: 0; min-width: 2px; }
 .tl-motor:first-child { border-radius: 3px 0 0 3px; }
 .tl-motor:last-child { border-radius: 0 3px 3px 0; }

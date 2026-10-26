@@ -1,5 +1,5 @@
 "use client";
-// Transporte de la reproducción: play/pausa, volver al inicio, velocidad y reloj.
+// Transporte de la reproducción: play/pausa, ir al inicio o al final, velocidad y reloj.
 // Lo comparten la vista Mapa (barra propia, sobre la grilla de rutas) y el
 // carrusel (versión compacta, en el encabezado de la card del mapa).
 import React from "react";
@@ -24,6 +24,7 @@ export default function ControlesReproduccion({
         {rep.playing ? "⏸" : rep.terminado ? "↻" : "▶"}
       </button>
       <button className="icon-btn" onClick={rep.reiniciar} title="Volver al inicio">⏮</button>
+      <button className="icon-btn" onClick={rep.alFinal} title="Ir al final (lo último que pasó)">⏭</button>
       {/* Pines de lo que falta visitar: dan contexto, pero en rutas largas tapan el recorrido. */}
       <button className={`icon-btn${rep.pines ? " active" : ""}`} onClick={rep.alternarPines}
         title={rep.pines ? "Ocultar los locales que faltan por visitar" : "Mostrar los locales que faltan por visitar"}

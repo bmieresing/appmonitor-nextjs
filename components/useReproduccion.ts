@@ -29,6 +29,7 @@ export interface Reproduccion {
   setVel: (v: number) => void;
   alternar: () => void;      // play / pausa (y rebobina si ya terminó)
   reiniciar: () => void;
+  alFinal: () => void;       // saltar a lo último que pasó (pausa)
   irA: (minuto: number) => void;  // saltar a una hora: pausa y se queda ahí
   /** Si se ven los pines de los locales que todavía no se visitan a esa hora. */
   pines: boolean;
@@ -73,6 +74,7 @@ export function useReproduccion(inicio: number, fin: number, activo = true): Rep
   }, [fin, inicio]);
 
   const reiniciar = useCallback(() => { setMinuto(inicio); setPlaying(false); }, [inicio]);
+  const alFinal = useCallback(() => { setMinuto(Math.max(inicio, fin)); setPlaying(false); }, [inicio, fin]);
 
   // Acotado a la jornada: un click en el eje más allá del último dato no puede
   // llevar el reloj a una hora que todavía no ocurrió.
@@ -83,5 +85,5 @@ export function useReproduccion(inicio: number, fin: number, activo = true): Rep
 
   const alternarPines = useCallback(() => setPines((v) => !v), []);
 
-  return { minuto, playing, vel, terminado, setVel, alternar, reiniciar, irA, pines, alternarPines };
+  return { minuto, playing, vel, terminado, setVel, alternar, reiniciar, alFinal, irA, pines, alternarPines };
 }
