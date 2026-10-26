@@ -11,7 +11,7 @@ import { useTheme } from "./ThemeProvider";
 import { estadoColor, productColor } from "@/lib/theme";
 import { miles } from "@/lib/format";
 import { acumuladoHasta, duracion, hhmm, type EventoVisita } from "@/lib/tiempo";
-import { finDetencion, kmHasta, minutosDetenido, odometroHasta } from "@/lib/gps";
+import { finDetencion, kmHasta, minutosDetenido, minutosEncendido, odometroHasta } from "@/lib/gps";
 import type { DetencionGps, PuntoGps } from "@/lib/types";
 
 const km = (v: number) => v.toLocaleString("es-CL", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -34,7 +34,11 @@ export default function ContadorRecorrido({ eventos, total, minuto, traza, deten
   const tiempos = detenciones && inicio != null && minuto > inicio
     ? (() => {
         const detenido = minutosDetenido(detenciones, inicio, minuto);
-        return { detenido, movimiento: Math.max(0, minuto - inicio - detenido) };
+        return {
+          detenido,
+          encendido: minutosEncendido(detenciones, inicio, minuto),
+          movimiento: Math.max(0, minuto - inicio - detenido),
+        };
       })()
     : null;
   // La detención en la que está el camión a este minuto, si está parado.
@@ -73,6 +77,12 @@ export default function ContadorRecorrido({ eventos, total, minuto, traza, deten
             <span>⏸ Detenido</span>
             <b className="tnum">{duracion(tiempos.detenido)}</b>
           </div>
+          {tiempos.encendido !== null && tiempos.encendido >= 1 && (
+            <div className="cr-fila">
+              <span style={{ color: t.warning }}>&nbsp;&nbsp;con motor encendido</span>
+              <b className="tnum" style={{ color: t.warning }}>{duracion(tiempos.encendido)}</b>
+            </div>
+          )}
           {parado && (
             <div key={`p${parado.desde}`} className="cr-vacio cr-flash">
               Detenido desde {hhmm(parado.desde)} ({duracion(Math.max(1, minuto - parado.desde))})

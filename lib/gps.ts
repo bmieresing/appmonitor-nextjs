@@ -5,7 +5,7 @@
 // Las trazas llegan por useGps(), indexadas por patente NORMALIZADA; cada punto es
 // un reporte crudo del dispositivo: [minutos desde 00:00 hora Chile, lat, lon],
 // ordenados por la hora del GPS (ver types.ts).
-import type { AlarmaGps, DetencionGps, GeocercaGps, Gps, PuntoGps, TrazaGps } from "./types";
+import type { AlarmaGps, DetencionGps, GeocercaGps, Gps, PuntoGps, TramoMotor, TrazaGps } from "./types";
 import { aMinutos, hhmm, duracion } from "./tiempo";
 
 /** Minutos sin reportar a partir de los cuales la posición deja de ser "actual" y
@@ -106,10 +106,73 @@ export function kmHasta(puntos: PuntoGps[] | null | undefined, minuto: number): 
 // registro en la app (el chofer puede cargarla después) y hay locales mal
 // geolocalizados. Una detención en curso trae `hasta` = null: termina en `ahora`.
 
-/** Las detenciones a mostrar: sin la de la noche anterior (`previo`), que es el
- *  camión estacionado antes de salir y no dice nada de la jornada. */
+/** Las detenciones a mostrar, con sus tramos de motor: sin la de la noche anterior
+ *  (`previo`), que es el camión estacionado antes de salir y no dice nada de la
+ *  jornada. */
 export function detencionesDelDia(traza: TrazaGps | null | undefined): DetencionGps[] {
-  return (traza?.detenciones ?? []).filter((d) => !d.previo);
+  const conMotor = !!traza?.puntos.some((p) => p[4] != null);
+  return (traza?.detenciones ?? []).filter((d) => !d.previo).map((d) => {
+    if (!conMotor) return d;
+    const tramos = tramosMotor(traza!.puntos, d.desde, d.hasta ?? 1440);
+    return cuadraMotor(d, tramos) ? { ...d, tramos } : { ...d, motorNoCuadra: true };
+  });
+}
+
+/** ¿Los tramos de los eventos cuadran con el total de motor encendido que mide
+ *  Pegasus? Si el equipo no mandó un apagado (VLSK54, 23-10, 12:20–12:29: los
+ *  eventos daban 566 s y Pegasus 45 s), el detalle mentiría: no se dibuja. Solo se
+ *  compara una detención cerrada dentro del día; la en curso no tiene total todavía
+ *  y la que cruza la medianoche lo trae hasta la mañana siguiente. Tolerancia: 1 min
+ *  o el 20 %. En las otras 9 del 23-10 cuadraron al segundo. */
+function cuadraMotor(d: DetencionGps, tramos: TramoMotor[]): boolean {
+  if (d.hasta === null || d.hasta >= 1440 || d.motor_min === null) return true;
+  const enc = tramos.reduce((s, t) => s + (t.encendido === true ? t.fin - t.ini : 0), 0);
+  return Math.abs(enc - d.motor_min) <= Math.max(1, d.motor_min * 0.2);
+}
+
+/** Tramos de motor encendido / apagado entre `desde` y `hasta`, armados con los
+ *  eventos de encendido y apagado (5º valor del punto). El estado al empezar es el
+ *  del último evento anterior; sin ninguno, el primer tramo queda sin dato (null).
+ *  Verificado contra Pegasus (VLSK54, 23-10, detención 09:13–10:48): la suma de los
+ *  tramos encendidos da los mismos 481 s que su `ignition`. */
+export function tramosMotor(puntos: PuntoGps[], desde: number, hasta: number): TramoMotor[] {
+  if (hasta <= desde) return [];
+  const n0 = puntosHasta(puntos, desde);
+  let estado: boolean | null = null;
+  for (let i = n0 - 1; i >= 0 && estado === null; i--) estado = puntos[i][4] ?? null;
+  const tramos: TramoMotor[] = [];
+  let ini = desde;
+  for (let i = n0; i < puntos.length && puntos[i][0] < hasta; i++) {
+    const m = puntos[i][4];
+    if (m == null || m === estado) continue;
+    if (puntos[i][0] > ini) tramos.push({ ini, fin: puntos[i][0], encendido: estado });
+    ini = puntos[i][0];
+    estado = m;
+  }
+  tramos.push({ ini, fin: hasta, encendido: estado });
+  return tramos;
+}
+
+/** Tramos con el motor encendido de una detención, recortados a [desde, hasta]. */
+export function encendidosEn(d: DetencionGps, desde: number, hasta: number): TramoMotor[] {
+  return (d.tramos ?? [])
+    .filter((t) => t.encendido === true && t.fin > desde && t.ini < hasta)
+    .map((t) => ({ ini: Math.max(desde, t.ini), fin: Math.min(hasta, t.fin), encendido: true }));
+}
+
+/** Minutos detenido con el motor encendido entre `desde` y `hasta`. null si ninguna
+ *  detención trae tramos (puntos guardados antes del 2026-10-26). */
+export function minutosEncendido(dets: DetencionGps[], desde: number, hasta: number): number | null {
+  if (!dets.some((d) => d.tramos)) return null;
+  let total = 0;
+  for (const d of dets) {
+    if (d.tramos) {
+      for (const t of encendidosEn(d, Math.max(desde, d.desde), Math.min(hasta, finDetencion(d, hasta)))) total += t.fin - t.ini;
+    } else if (d.motor_min !== null && d.desde >= desde && finDetencion(d, hasta) <= hasta) {
+      total += d.motor_min;   // sin detalle (no cuadró): el total, una vez que terminó
+    }
+  }
+  return total;
 }
 
 export function finDetencion(d: DetencionGps, ahora: number): number {
@@ -126,12 +189,23 @@ export function minutosDetenido(dets: DetencionGps[], desde: number, hasta: numb
   return total;
 }
 
-/** Detalle de una detención para el tooltip: "Detenido 1 h 35 min · 09:13–10:48 ·
- *  motor encendido 8 min". */
+/** Detalle de una detención para el tooltip: "Detenido 1 h 35 min · 09:13–10:48" y,
+ *  con tramos de motor, cuándo estuvo encendido ("motor encendido 8 min: 09:13–09:15 ·
+ *  10:41–10:42"). Sin tramos (días anteriores), el total que da Pegasus. */
 export function textoDetencion(d: DetencionGps, ahora: number): string {
   const fin = finDetencion(d, ahora);
   const tramo = d.hasta === null ? `desde ${hhmm(d.desde)} · sigue detenido` : `${hhmm(d.desde)}–${hhmm(fin)}`;
-  const motor = d.motor_min !== null && d.motor_min >= 1 ? `\nmotor encendido ${duracion(d.motor_min)}` : "";
+  let motor = "";
+  if (d.tramos) {
+    const enc = encendidosEn(d, d.desde, fin).filter((t) => t.fin - t.ini >= 0.5);
+    const total = enc.reduce((s, t) => s + (t.fin - t.ini), 0);
+    const lista = enc.slice(0, 4).map((t) => `${hhmm(t.ini)}–${hhmm(t.fin)}`).join(" · ") + (enc.length > 4 ? " …" : "");
+    motor = total >= 1 ? `\nmotor encendido ${duracion(total)}: ${lista}` : "\nmotor apagado";
+  } else if (d.motor_min !== null && d.motor_min >= 1) {
+    motor = `\nmotor encendido ${duracion(d.motor_min)} en total (sin detalle de cuándo)`;
+  } else if (d.motor_min !== null) {
+    motor = d.motor_min > 0 ? "\nmotor encendido menos de 1 min" : "\nmotor apagado";
+  }
   return `Detenido ${duracion(Math.max(1, fin - d.desde))} · ${tramo}${motor}`;
 }
 

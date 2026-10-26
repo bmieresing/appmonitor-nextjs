@@ -742,7 +742,9 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
 .mapa-modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 12px 16px 10px; }
 .mapa-modal-cuerpo { flex: 1 1 auto; min-height: 0; }
 .mapa-modal-cuerpo .mapa-canvas { height: 100% !important; }
-.mapa-modal-pie { flex: 0 0 auto; display: flex; flex-direction: column; gap: 8px; padding: 10px 16px 12px; border-top: 1px solid var(--border); max-height: 40%; overflow-y: auto; }
+/* Sin scroll horizontal: una barra que aparece angosta la línea de tiempo y corre las
+   marcas bajo el mouse. El vertical reserva su lugar (gutter) por lo mismo. */
+.mapa-modal-pie { flex: 0 0 auto; display: flex; flex-direction: column; gap: 8px; padding: 10px 16px 12px; border-top: 1px solid var(--border); max-height: 40%; overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable; }
 @media (max-width: 700px) { .mapa-modal-fondo { padding: 8px; } }
 
 /* Recorrido en grande: mapa + panel del acumulado (ContadorRecorrido) a la derecha.
@@ -867,6 +869,8 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
 .tl-detenida.en-curso {
   background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--text-2) 45%, transparent) 0 4px, transparent 4px 7px);
 }
+/* Tramo de la detención con el motor encendido (eventos de encendido/apagado). */
+.tl-motor { position: absolute; top: 0; bottom: 0; min-width: 2px; border-radius: 2px; background: var(--warning); }
 
 /* Punto de una visita: el relleno lleva el estado y la forma, la prioridad Alta
    (rombo) y la emergencia (halo). Aparece dentro del recuadro de la visita, en el
@@ -929,6 +933,9 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
   background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-lg);
   cursor: default;
 }
+/* Cerca de los bordes del track, el detalle se abre hacia adentro (TimelineRutas). */
+.tl-grupo.pop-der .tl-grupo-pop { left: auto; right: -8px; transform: none; }
+.tl-grupo.pop-izq .tl-grupo-pop { left: -8px; transform: none; }
 .tl-grupo-pop-tit { font-size: 11px; font-weight: 800; padding: 0 4px 6px; border-bottom: 1px solid var(--border); margin-bottom: 4px; white-space: nowrap; }
 .tl-grupo-pop-tit span { font-weight: 500; color: var(--muted); }
 .tl-grupo-item { display: grid; grid-template-columns: 38px 11px 1fr minmax(0, auto); align-items: center; gap: 7px; padding: 4px; border-radius: 6px; font-size: 12px; }
@@ -963,6 +970,7 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
 .tl-alarma-muestra { position: relative; top: 0; margin-left: 0; display: inline-block; }
 .tl-gap-muestra { width: 26px; height: 3px; border-radius: 999px; background: repeating-linear-gradient(90deg, var(--warning) 0 4px, transparent 4px 8px); }
 .tl-detenida-muestra { width: 22px; height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--text-2) 38%, transparent); }
+.tl-detenida-muestra.tl-motor-muestra { background: var(--warning); }
 .tl-pie-nota { margin-left: auto; font-style: italic; }
 
 /* ── Reproducción del recorrido ─────────────────────────────────

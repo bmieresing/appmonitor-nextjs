@@ -198,9 +198,18 @@ export interface ZonaMapRowLike {
 // GPS del día (Pegasus). No viaja en el snapshot: lo trae otro Lambda cada minuto a
 // la tabla monitor_gps_punto, y la vista Mapa y el Carrusel lo piden por /api/gps
 // (rpc gps_del_dia). Un punto es un reporte crudo del dispositivo:
-// [minutos desde 00:00 hora Chile, lat, lon, odómetro en metros]. El odómetro es
-// null en los puntos guardados antes de que el Lambda lo pidiera (2026-10-23).
-export type PuntoGps = [number, number, number, (number | null)?];
+// [minutos desde 00:00 hora Chile, lat, lon, odómetro en metros, motor]. El odómetro
+// es null en los puntos guardados antes de que el Lambda lo pidiera (2026-10-23).
+// `motor`: true = evento de encendido, false = de apagado, null = reporte común (o
+// guardado antes del 2026-10-26).
+export type PuntoGps = [number, number, number, (number | null)?, (boolean | null)?];
+
+/** Tramo de una detención con el motor encendido, apagado o sin dato (null). */
+export interface TramoMotor {
+  ini: number;
+  fin: number;
+  encendido: boolean | null;
+}
 
 /** Detención del camión según el GPS (tramo detenido de Pegasus /trips): velocidad
  *  media bajo 3 mph por más de 4 min. Sale SOLO del GPS, sin asociarla a un local.
@@ -213,6 +222,10 @@ export interface DetencionGps {
   lon: number | null;
   motor_min: number | null;    // con el motor encendido (null mientras sigue en curso)
   ralenti_min: number | null;  // encendido sin moverse
+  /** Lo agrega el front (detencionesDelDia): cuándo estuvo el motor encendido. */
+  tramos?: TramoMotor[];
+  /** Los eventos del equipo no cuadran con el total de Pegasus: sin detalle. */
+  motorNoCuadra?: boolean;
 }
 
 export interface TrazaGps {
