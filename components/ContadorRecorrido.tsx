@@ -65,32 +65,6 @@ export default function ContadorRecorrido({ eventos, total, minuto, traza, deten
         </div>
       )}
 
-      {/* Del GPS (tramos de Pegasus), sin asociar a ningún local. */}
-      {tiempos && (
-        <div className="cr-bloque">
-          <div className="cr-tit">Tiempo</div>
-          <div className="cr-fila">
-            <span>🚚 En movimiento</span>
-            <b className="tnum">{duracion(tiempos.movimiento)}</b>
-          </div>
-          <div className="cr-fila">
-            <span>⏸ Detenido</span>
-            <b className="tnum">{duracion(tiempos.detenido)}</b>
-          </div>
-          {tiempos.encendido !== null && tiempos.encendido >= 1 && (
-            <div className="cr-fila">
-              <span style={{ color: t.warning }}>&nbsp;&nbsp;con motor encendido</span>
-              <b className="tnum" style={{ color: t.warning }}>{duracion(tiempos.encendido)}</b>
-            </div>
-          )}
-          {parado && (
-            <div key={`p${parado.desde}`} className="cr-vacio cr-flash">
-              Detenido desde {hhmm(parado.desde)} ({duracion(Math.max(1, minuto - parado.desde))})
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Camión sin ruta asignada (solo GPS): no hay visitas ni litros que contar. */}
       {total > 0 && (
         <>
@@ -138,6 +112,33 @@ export default function ContadorRecorrido({ eventos, total, minuto, traza, deten
             {u.litros > 0 && <b className="tnum">{miles(u.litros)} L</b>}
           </div>
           {u.razon && u.estado !== "Realizado" && <div className="cr-vacio">{u.razon}</div>}
+        </div>
+      )}
+
+      {/* Del GPS (tramos de Pegasus), sin asociar a ningún local. Va al final: es
+          contexto, lo principal son los km, las visitas y lo recolectado. */}
+      {tiempos && (
+        <div className="cr-bloque">
+          <div className="cr-tit">Tiempo</div>
+          <div className="cr-fila">
+            <span>🚚 En movimiento</span>
+            <b className="tnum">{duracion(tiempos.movimiento)}</b>
+          </div>
+          <div className="cr-fila">
+            <span>⏸ Detenido</span>
+            <b className="tnum">{duracion(tiempos.detenido)}</b>
+          </div>
+          {tiempos.encendido !== null && tiempos.encendido >= 1 && (
+            <div className="cr-fila">
+              <span style={{ color: t.warning }}>&nbsp;&nbsp;con motor encendido</span>
+              <b className="tnum" style={{ color: t.warning }}>{duracion(tiempos.encendido)}</b>
+            </div>
+          )}
+          {parado && (
+            <div key={`p${parado.desde}`} className="cr-vacio cr-flash">
+              Detenido desde {hhmm(parado.desde)} ({duracion(Math.max(1, minuto - parado.desde))})
+            </div>
+          )}
         </div>
       )}
     </aside>
