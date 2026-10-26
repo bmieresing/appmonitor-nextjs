@@ -10,23 +10,35 @@ import React, { useMemo } from "react";
 import { useTheme } from "./ThemeProvider";
 import { estadoColor, productColor } from "@/lib/theme";
 import { miles } from "@/lib/format";
-import { acumuladoHasta, hhmm, type EventoVisita } from "@/lib/tiempo";
-import { kmHasta, odometroHasta } from "@/lib/gps";
-import type { PuntoGps } from "@/lib/types";
+import { acumuladoHasta, duracion, hhmm, type EventoVisita } from "@/lib/tiempo";
+import { finDetencion, kmHasta, minutosDetenido, odometroHasta } from "@/lib/gps";
+import type { DetencionGps, PuntoGps } from "@/lib/types";
 
 const km = (v: number) => v.toLocaleString("es-CL", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-export default function ContadorRecorrido({ eventos, total, minuto, traza }: {
+export default function ContadorRecorrido({ eventos, total, minuto, traza, detenciones, inicio }: {
   eventos: EventoVisita[];
   /** Locales de la ruta (visitados o no): el "de N" de las visitas. */
   total: number;
   minuto: number;
   traza?: PuntoGps[] | null;
+  /** Detenciones del GPS (detencionesDelDia) y desde cuándo contar: la jornada. */
+  detenciones?: DetencionGps[];
+  inicio?: number | null;
 }) {
   const { tokens: t } = useTheme();
   const a = useMemo(() => acumuladoHasta(eventos, minuto), [eventos, minuto]);
   const odo = odometroHasta(traza, minuto);
   const kms = kmHasta(traza, minuto);
+  // Tiempo detenido y en movimiento desde que arrancó la jornada hasta el reloj.
+  const tiempos = detenciones && inicio != null && minuto > inicio
+    ? (() => {
+        const detenido = minutosDetenido(detenciones, inicio, minuto);
+        return { detenido, movimiento: Math.max(0, minuto - inicio - detenido) };
+      })()
+    : null;
+  // La detención en la que está el camión a este minuto, si está parado.
+  const parado = detenciones?.find((d) => d.desde <= minuto && finDetencion(d, minuto) >= minuto && d.desde < minuto);
   const max = Math.max(1, ...a.productos.map((p) => p.litros));
   const u = a.ultima?.punto;
 
@@ -45,6 +57,26 @@ export default function ContadorRecorrido({ eventos, total, minuto, traza }: {
               <div className="cr-fila"><span>Odómetro inicial</span><b className="tnum">{km(odo.ini)} km</b></div>
               <div className="cr-fila"><span>Odómetro final</span><b key={km(odo.fin)} className="cr-flash tnum">{km(odo.fin)} km</b></div>
             </>
+          )}
+        </div>
+      )}
+
+      {/* Del GPS (tramos de Pegasus), sin asociar a ningún local. */}
+      {tiempos && (
+        <div className="cr-bloque">
+          <div className="cr-tit">Tiempo</div>
+          <div className="cr-fila">
+            <span>🚚 En movimiento</span>
+            <b className="tnum">{duracion(tiempos.movimiento)}</b>
+          </div>
+          <div className="cr-fila">
+            <span>⏸ Detenido</span>
+            <b className="tnum">{duracion(tiempos.detenido)}</b>
+          </div>
+          {parado && (
+            <div key={`p${parado.desde}`} className="cr-vacio cr-flash">
+              Detenido desde {hhmm(parado.desde)} ({duracion(Math.max(1, minuto - parado.desde))})
+            </div>
           )}
         </div>
       )}

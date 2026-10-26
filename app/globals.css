@@ -858,6 +858,15 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
 /* Hueco largo sin registrar: la anomalía que esta vista busca. */
 .tl-gap { position: absolute; top: 50%; height: 3px; margin-top: -1.5px; border-radius: 999px; background: repeating-linear-gradient(90deg, var(--warning) 0 4px, transparent 4px 8px); cursor: help; }
 .tl-gap::before { content: ""; position: absolute; inset: -9px 0; }  /* área de hover cómoda */
+/* Camión detenido según el GPS: franja al pie del track, debajo de las visitas. La
+   que sigue en curso va rayada, como algo que todavía no cierra. */
+.tl-detenida {
+  position: absolute; bottom: 1px; height: 6px; border-radius: 3px; cursor: help;
+  background: color-mix(in srgb, var(--text-2) 38%, transparent);
+}
+.tl-detenida.en-curso {
+  background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--text-2) 45%, transparent) 0 4px, transparent 4px 7px);
+}
 
 /* Punto de una visita: el relleno lleva el estado y la forma, la prioridad Alta
    (rombo) y la emergencia (halo). Aparece dentro del recuadro de la visita, en el
@@ -953,6 +962,7 @@ table.data tbody tr:hover { background: color-mix(in srgb, var(--accent) 5%, tra
 .tl-alarma.critica i { background: var(--critical); }
 .tl-alarma-muestra { position: relative; top: 0; margin-left: 0; display: inline-block; }
 .tl-gap-muestra { width: 26px; height: 3px; border-radius: 999px; background: repeating-linear-gradient(90deg, var(--warning) 0 4px, transparent 4px 8px); }
+.tl-detenida-muestra { width: 22px; height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--text-2) 38%, transparent); }
 .tl-pie-nota { margin-left: auto; font-style: italic; }
 
 /* ── Reproducción del recorrido ─────────────────────────────────

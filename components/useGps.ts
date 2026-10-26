@@ -13,12 +13,18 @@
 //
 // Si una lectura falla, la vista sigue con lo que tenía y la próxima reintenta.
 import { useEffect, useRef, useState } from "react";
-import type { Gps, LecturaGps } from "@/lib/types";
+import type { DetencionGps, Gps, LecturaGps } from "@/lib/types";
 import { unirPuntos } from "@/lib/gps";
 import { useDia } from "./DiaContext";
 
 const INTERVALO_MS = 60_000;
 const VACIO: Gps = {};
+
+/** Misma lista de detenciones: así un poll que no cambió nada no rehace los mapas. */
+function mismasDetenciones(a: DetencionGps[] | undefined, b: DetencionGps[]): boolean {
+  if (!a || a.length !== b.length) return false;
+  return a.every((d, i) => d.desde === b[i].desde && d.hasta === b[i].hasta && d.motor_min === b[i].motor_min);
+}
 
 export function useGps(): Gps {
   const { dia } = useDia();
@@ -51,14 +57,24 @@ export function useGps(): Gps {
         if (lectura.hasta) estado.current.hasta = lectura.hasta;
 
         const patentes = Object.keys(lectura.trazas);
-        if (patentes.length === 0) return;   // nada nuevo: no se toca el estado
+        // Las detenciones vienen siempre completas: se reemplazan, no se unen.
+        const detenciones = lectura.detenciones ?? {};
+        if (patentes.length === 0 && Object.keys(detenciones).length === 0) return;   // nada nuevo
         setGps((previo) => {
           let cambio = false;
           const siguiente: Gps = { ...previo };
           for (const pat of patentes) {
             const puntos = unirPuntos(previo[pat]?.puntos, lectura.trazas[pat]);
             if (puntos === previo[pat]?.puntos || puntos.length === 0) continue;
-            siguiente[pat] = { puntos, ultimo: puntos[puntos.length - 1] };
+            siguiente[pat] = { ...previo[pat], puntos, ultimo: puntos[puntos.length - 1] };
+            cambio = true;
+          }
+          // Solo para camiones con traza (sin puntos, trazaDe no la devuelve), y solo si
+          // cambió algo: la detención en curso cambia cada minuto, el resto del día no.
+          for (const [pat, dets] of Object.entries(detenciones)) {
+            const traza = siguiente[pat];
+            if (!traza || mismasDetenciones(traza.detenciones, dets)) continue;
+            siguiente[pat] = { ...traza, detenciones: dets };
             cambio = true;
           }
           // Misma identidad si no entró nada: no se rehace ningún mapa.

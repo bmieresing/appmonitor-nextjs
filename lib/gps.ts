@@ -5,7 +5,7 @@
 // Las trazas llegan por useGps(), indexadas por patente NORMALIZADA; cada punto es
 // un reporte crudo del dispositivo: [minutos desde 00:00 hora Chile, lat, lon],
 // ordenados por la hora del GPS (ver types.ts).
-import type { AlarmaGps, GeocercaGps, Gps, PuntoGps, TrazaGps } from "./types";
+import type { AlarmaGps, DetencionGps, GeocercaGps, Gps, PuntoGps, TrazaGps } from "./types";
 import { aMinutos, hhmm, duracion } from "./tiempo";
 
 /** Minutos sin reportar a partir de los cuales la posición deja de ser "actual" y
@@ -99,6 +99,40 @@ export function inicioMovimiento(puntos: PuntoGps[] | null | undefined): number 
 export function kmHasta(puntos: PuntoGps[] | null | undefined, minuto: number): number | null {
   const o = odometroHasta(puntos, minuto);
   return o === null ? null : Math.max(0, o.fin - o.ini);
+}
+
+// ── Detenciones (tramos detenidos de Pegasus) ───────────────────────────────
+// Salen solo del GPS y NO se asocian a un local: la hora de la visita es la del
+// registro en la app (el chofer puede cargarla después) y hay locales mal
+// geolocalizados. Una detención en curso trae `hasta` = null: termina en `ahora`.
+
+/** Las detenciones a mostrar: sin la de la noche anterior (`previo`), que es el
+ *  camión estacionado antes de salir y no dice nada de la jornada. */
+export function detencionesDelDia(traza: TrazaGps | null | undefined): DetencionGps[] {
+  return (traza?.detenciones ?? []).filter((d) => !d.previo);
+}
+
+export function finDetencion(d: DetencionGps, ahora: number): number {
+  return Math.min(1440, d.hasta ?? Math.max(d.desde, ahora));
+}
+
+/** Minutos detenido entre `desde` y `hasta` (lo que se solapa con cada detención). */
+export function minutosDetenido(dets: DetencionGps[], desde: number, hasta: number): number {
+  let total = 0;
+  for (const d of dets) {
+    const ini = Math.max(desde, d.desde), fin = Math.min(hasta, finDetencion(d, hasta));
+    if (fin > ini) total += fin - ini;
+  }
+  return total;
+}
+
+/** Detalle de una detención para el tooltip: "Detenido 1 h 35 min · 09:13–10:48 ·
+ *  motor encendido 8 min". */
+export function textoDetencion(d: DetencionGps, ahora: number): string {
+  const fin = finDetencion(d, ahora);
+  const tramo = d.hasta === null ? `desde ${hhmm(d.desde)} · sigue detenido` : `${hhmm(d.desde)}–${hhmm(fin)}`;
+  const motor = d.motor_min !== null && d.motor_min >= 1 ? `\nmotor encendido ${duracion(d.motor_min)}` : "";
+  return `Detenido ${duracion(Math.max(1, fin - d.desde))} · ${tramo}${motor}`;
 }
 
 /** Lectura del odómetro del equipo, en km: la del primer reporte del día y la del

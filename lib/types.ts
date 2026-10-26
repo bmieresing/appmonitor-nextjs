@@ -202,9 +202,23 @@ export interface ZonaMapRowLike {
 // null en los puntos guardados antes de que el Lambda lo pidiera (2026-10-23).
 export type PuntoGps = [number, number, number, (number | null)?];
 
+/** Detención del camión según el GPS (tramo detenido de Pegasus /trips): velocidad
+ *  media bajo 3 mph por más de 4 min. Sale SOLO del GPS, sin asociarla a un local.
+ *  Minutos del día, hora Chile. */
+export interface DetencionGps {
+  desde: number;               // 0 si empezó el día anterior
+  hasta: number | null;        // null = sigue detenido; 1440 = pasó la medianoche
+  previo: boolean;             // empezó el día anterior (la noche estacionado)
+  lat: number | null;
+  lon: number | null;
+  motor_min: number | null;    // con el motor encendido (null mientras sigue en curso)
+  ralenti_min: number | null;  // encendido sin moverse
+}
+
 export interface TrazaGps {
   puntos: PuntoGps[];   // todos los reportes del día, ordenados por la hora del GPS
   ultimo: PuntoGps;     // último reporte (= el último de `puntos`)
+  detenciones?: DetencionGps[];   // del día completo, ordenadas por hora
 }
 
 /** Clave: la patente NORMALIZADA (mayúsculas, sin guiones). Buscar con trazaDe(). */
@@ -215,6 +229,8 @@ export interface LecturaGps {
   dia: string;                  // YYYY-MM-DD hora Chile: al cambiar, se descarta lo cargado
   hasta: string | null;         // marca para la próxima lectura (null = nada nuevo)
   trazas: Record<string, PuntoGps[]>;
+  /** Siempre del día completo (no depende de `desde`). Ausente si la RPC es anterior. */
+  detenciones?: Record<string, DetencionGps[]>;
 }
 
 // Alarmas de las reglas de Pegasus (trigger logs) y las geocercas que vigilan. Las

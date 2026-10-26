@@ -14,7 +14,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { estiloRuta } from "@/components/CentroColores";
 import { useTheme } from "@/components/ThemeProvider";
 import { useAlarmas } from "@/components/useAlarmas";
-import { alarmasDeRuta, type AlarmaEnRuta } from "@/lib/gps";
+import { alarmasDeRuta, finDetencion, minutoAhora, textoDetencion, type AlarmaEnRuta } from "@/lib/gps";
+import type { DetencionGps } from "@/lib/types";
 import { estadoColor, semaforo, type Tokens } from "@/lib/theme";
 import { miles } from "@/lib/format";
 import {
@@ -96,8 +97,15 @@ export default function TimelineRutas({
   cursor = null,
   onSaltar,
   encabezado,
+  detenciones,
+  ahora,
 }: {
   filas: FilaTiempo[];
+  /** Detenciones del GPS de cada ruta, por `ruta.id` (detencionesDelDia). Sin esto,
+   *  la fila no las dibuja. */
+  detenciones?: Map<string, DetencionGps[]>;
+  /** Minuto en que termina una detención en curso (hoy: el reloj; historial: cierre). */
+  ahora?: number;
   ventana: Ventana;
   colorCentro: (centro: string | null | undefined) => string | undefined;
   /** Título de la card, adentro y no arriba: el eje horario y su rótulo son la misma
@@ -207,6 +215,24 @@ export default function TimelineRutas({
                   />
                 )}
 
+                {/* Detenciones del camión según el GPS: franja al pie del track, de
+                    cuándo paró a cuándo volvió a andar. Independientes de las visitas
+                    (el chofer puede registrarlas después). */}
+                {(detenciones?.get(ruta.id) ?? []).map((d) => {
+                  const fin = finDetencion(d, ahora ?? minutoAhora());
+                  const ini = Math.max(d.desde, ventana.desde), hasta = Math.min(fin, ventana.hasta);
+                  if (hasta <= ini) return null;
+                  return (
+                    <span key={`d${d.desde}`} className={`tl-detenida has-tip${d.hasta === null ? " en-curso" : ""}`}
+                      data-tip={textoDetencion(d, ahora ?? minutoAhora())}
+                      style={{
+                        left: `${posicion(ini, ventana)}%`,
+                        width: `${Math.max(0.4, posicion(hasta, ventana) - posicion(ini, ventana))}%`,
+                        opacity: cursor !== null && d.desde > cursor ? 0.35 : 1,
+                      }} />
+                  );
+                })}
+
                 {/* El hueco más largo, si pasa el umbral: es la anomalía que se
                     busca en esta vista (traslado largo, colación, o la app sin uso). */}
                 {marcarGap && (
@@ -292,6 +318,11 @@ export default function TimelineRutas({
         <span className="tl-pie-item">
           <span className="tl-alarma tl-alarma-muestra"><i /></span> alarma GPS (geocerca)
         </span>
+        {detenciones && (
+          <span className="tl-pie-item">
+            <span className="tl-detenida-muestra" /> camión detenido (GPS, más de 4 min)
+          </span>
+        )}
         <span className="tl-pie-nota">
           La hora es la del registro en la app del chofer, no la de llegada al local.
         </span>

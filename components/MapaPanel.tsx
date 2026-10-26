@@ -24,7 +24,8 @@ import { estadoColor, semaforo } from "@/lib/theme";
 import { miles } from "@/lib/format";
 import { hhmm, ventanaDe, type FilaTiempo, type Ventana } from "@/lib/tiempo";
 import { tieneCoords, type Panel, type PuntoMapa } from "@/lib/mapa";
-import { finTraza, inicioMovimiento, inicioTraza } from "@/lib/gps";
+import { CIERRE_DIA, detencionesDelDia, finTraza, inicioMovimiento, inicioTraza } from "@/lib/gps";
+import { useDia } from "./DiaContext";
 import type { TrazaGps } from "@/lib/types";
 
 /** Desde dónde hasta dónde se reproduce una ruta: de la salida de su camión (o su
@@ -76,6 +77,9 @@ export default function MapaPanel({ fila, traza, ventana, colorCentro, fitKey, r
   const conCoords = useMemo(() => ruta.puntos.filter(tieneCoords), [ruta.puntos]);
   const pendientes = useMemo(() => ruta.puntos.filter((p) => !p.hora), [ruta.puntos]);
   const filas = useMemo(() => [fila], [fila]);
+  const { dia } = useDia();
+  const dets = useMemo(() => detencionesDelDia(traza), [traza]);
+  const detenciones = useMemo(() => new Map([[ruta.id, dets]]), [ruta.id, dets]);
 
   // KPI del encabezado: los del día en estático; en recorrido, los del instante.
   const hechas = minuto === null ? null : fila.eventos.filter((e) => e.min <= minuto);
@@ -159,14 +163,15 @@ export default function MapaPanel({ fila, traza, ventana, colorCentro, fitKey, r
           // Sin reproducir, el contador muestra el día completo (hasta lo último
           // que pasó): así los km y el odómetro se ven sin tener que darle ▶.
           lateral={rep || jornada
-            ? <ContadorRecorrido eventos={fila.eventos} total={total} minuto={rep ? rep.minuto : jornada!.fin} traza={traza?.puntos} />
+            ? <ContadorRecorrido eventos={fila.eventos} total={total} minuto={rep ? rep.minuto : jornada!.fin} traza={traza?.puntos}
+                detenciones={dets} inicio={jornada?.inicio ?? null} />
             : undefined}
           pie={rep ? (
             <>
               <ControlesReproduccion rep={rep}>{conteo}</ControlesReproduccion>
               {/* La línea de tiempo de esta ruta como barra del video. */}
               <TimelineRutas filas={filas} ventana={repTramo ? ventana : ventanaPropia} colorCentro={colorCentro} sinEtiqueta
-                cursor={rep.minuto} onSaltar={rep.irA} />
+                cursor={rep.minuto} onSaltar={rep.irA} detenciones={detenciones} ahora={dia ? CIERRE_DIA : undefined} />
             </>
           ) : undefined}
         >

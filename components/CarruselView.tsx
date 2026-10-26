@@ -18,7 +18,8 @@ import PanelInconsistencias from "./PanelInconsistencias";
 import { useTheme } from "./ThemeProvider";
 import { useCentroColores, estiloRuta } from "./CentroColores";
 import { useGps } from "./useGps";
-import { finTraza, inicioMovimiento, trazaDe } from "@/lib/gps";
+import { CIERRE_DIA, detencionesDelDia, finTraza, inicioMovimiento, trazaDe } from "@/lib/gps";
+import { useDia } from "./DiaContext";
 import { breakdownDonutOption } from "@/lib/charts";
 import { miles } from "@/lib/format";
 import { avisoDeCarrusel, sinLocales } from "@/lib/cards";
@@ -284,7 +285,8 @@ function MapaRuta({ c, rd, repro, rep, onRepro, traza, jornada }: {
           titulo={c.chofer}
           subtitulo={c.ruta && <div className="mapa-panel-ruta">{c.ruta}</div>}
           onClose={() => setGrande(false)}
-          lateral={repro ? <ContadorRecorrido eventos={rd.fila.eventos} total={puntos.length} minuto={minuto} traza={traza?.puntos} /> : undefined}
+          lateral={repro ? <ContadorRecorrido eventos={rd.fila.eventos} total={puntos.length} minuto={minuto} traza={traza?.puntos}
+            detenciones={detencionesDelDia(traza)} inicio={jornada?.inicio ?? null} /> : undefined}
           pie={rd.hayHoras || repro ? (
             <>
               {repro && (
@@ -298,7 +300,7 @@ function MapaRuta({ c, rd, repro, rep, onRepro, traza, jornada }: {
               {/* La misma línea de tiempo de la card: en Recorrido es la barra del
                   video (cursor + click para saltar). Sin visitas, la de la jornada. */}
               {rd.hayHoras
-                ? <TimelineChofer rd={rd} titulo="Línea de tiempo de la ruta"
+                ? <TimelineChofer rd={rd} titulo="Línea de tiempo de la ruta" traza={traza}
                     cursor={repro ? minuto : null} onSaltar={repro ? rep.irA : undefined} />
                 : jornada && <BarraJornada rep={rep} inicio={jornada.inicio} fin={jornada.fin} />}
             </>
@@ -323,14 +325,21 @@ function MapaRuta({ c, rd, repro, rep, onRepro, traza, jornada }: {
 // Con el recorrido en reproducción pasa a ser además la barra del video: lleva el
 // cursor del reloj, atenúa lo que todavía no ocurrió y se puede clickear para
 // saltar a una hora. Los controles están arriba, en la card del mapa.
-function TimelineChofer({ rd, titulo, cursor, onSaltar }: {
+function TimelineChofer({ rd, titulo, cursor, onSaltar, traza }: {
   rd: RutaDelDia;
   titulo: string;
   cursor: number | null;
   onSaltar?: (minuto: number) => void;
+  /** GPS del camión: sus detenciones van como franja al pie de la fila. */
+  traza: TrazaGps | null;
 }) {
   const { colorDe } = useCentroColores();
+  const { dia } = useDia();
   const filas = useMemo(() => [rd.fila], [rd.fila]);
+  const detenciones = useMemo(
+    () => new Map([[rd.fila.ruta.id, detencionesDelDia(traza)]]),
+    [rd.fila.ruta.id, traza],
+  );
 
   if (!rd.hayHoras) return null;
 
@@ -348,7 +357,8 @@ function TimelineChofer({ rd, titulo, cursor, onSaltar }: {
   return (
     <div className="carrusel-tl">
       <TimelineRutas filas={filas} ventana={rd.ventana} colorCentro={colorDe} sinEtiqueta
-        cursor={cursor} onSaltar={onSaltar} encabezado={encabezado} />
+        cursor={cursor} onSaltar={onSaltar} encabezado={encabezado}
+        detenciones={detenciones} ahora={dia ? CIERRE_DIA : undefined} />
     </div>
   );
 }
@@ -688,7 +698,7 @@ export default function CarruselView({ carrusel, global, initialChofer, inconsis
                 mismo ancho: son las dos lecturas de la misma ruta —dónde y cuándo—,
                 y una arriba de la otra el eje horario se lee contra el recorrido en
                 vez de contra los rankings de al lado. */}
-            <TimelineChofer rd={rd} titulo={esGlobal ? "Línea de tiempo del día" : "Línea de tiempo de la ruta"}
+            <TimelineChofer rd={rd} titulo={esGlobal ? "Línea de tiempo del día" : "Línea de tiempo de la ruta"} traza={traza}
               cursor={repro && hayRecorrido ? rep.minuto : null}
               onSaltar={repro && hayRecorrido ? rep.irA : undefined} />
           </div>

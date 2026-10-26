@@ -16,7 +16,9 @@ import { estadoColor } from "@/lib/theme";
 import type { PuntoMapa } from "@/lib/mapa";
 import type { AlarmaGps, GeocercaGps, TrazaGps } from "@/lib/types";
 import type { Tokens } from "@/lib/theme";
-import { CAMION_D, CIERRE_DIA, alarmasDeRuta, camionSvg, minutoAhora, popupCamion, vigente } from "@/lib/gps";
+import {
+  CAMION_D, CIERRE_DIA, alarmasDeRuta, camionSvg, detencionesDelDia, minutoAhora, popupCamion, textoDetencion, vigente,
+} from "@/lib/gps";
 import { useDia } from "./DiaContext";
 import { useAlarmas } from "./useAlarmas";
 
@@ -310,6 +312,16 @@ export default function MapaLocales({
     const ultimo = traza.ultimo;
     // En un día del historial el reloj queda en su cierre, no en la hora real.
     const ahora = () => (dia ? CIERRE_DIA : minutoAhora());
+    // Dónde se detuvo el camión (GPS, sin asociar a un local): un círculo gris sobre
+    // la línea, con la duración al pasar el mouse.
+    for (const d of detencionesDelDia(traza)) {
+      if (d.lat == null || d.lon == null) continue;
+      Lf.circleMarker([d.lat, d.lon], {
+        radius: 6, weight: 2, color: "#ffffff", fillColor: t.textSecondary, fillOpacity: 0.85,
+      })
+        .bindTooltip(textoDetencion(d, ahora()).replace("\n", "<br>"), { direction: "top", offset: [0, -6] })
+        .addTo(capa);
+    }
     const fresco = vigente(ultimo, ahora());
     Lf.marker([ultimo[1], ultimo[2]], {
       icon: Lf.divIcon({

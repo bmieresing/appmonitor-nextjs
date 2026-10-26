@@ -23,7 +23,8 @@ import ReproduccionRutas from "@/components/ReproduccionRutas";
 import { useSnap } from "@/components/SnapshotContext";
 import { useGps } from "@/components/useGps";
 import { jornadaDe } from "@/components/MapaPanel";
-import { normalizarPatente, trazaDe } from "@/lib/gps";
+import { CIERRE_DIA, detencionesDelDia, normalizarPatente, trazaDe } from "@/lib/gps";
+import { useDia } from "@/components/DiaContext";
 import { useCentroColores } from "@/components/CentroColores";
 import { useTheme } from "@/components/ThemeProvider";
 import {
@@ -115,6 +116,13 @@ export default function MapaPage() {
     }
     return ventanaDe(mins);
   }, [visiblesTodos, panelesTiempoTodos, panelesGps, gps]);
+
+  // Detenciones del GPS de cada ruta, para la franja de la línea de tiempo.
+  const { dia } = useDia();
+  const detenciones = useMemo(
+    () => new Map(filas.map((f) => [f.ruta.id, detencionesDelDia(trazaDe(gps, f.ruta.patente))] as const)),
+    [filas, gps],
+  );
 
   const sinHoras = useMemo(() => sinSoporteHora(datos.todos), [datos.todos]);
 
@@ -269,7 +277,8 @@ export default function MapaPage() {
         filas.length === 0 ? (
           <p className="muted">Ninguna ruta de {tab} coincide con los filtros.</p>
         ) : (
-          <TimelineRutas filas={filas} ventana={ventana} colorCentro={colorCentro} />
+          <TimelineRutas filas={filas} ventana={ventana} colorCentro={colorCentro}
+            detenciones={detenciones} ahora={dia ? CIERRE_DIA : undefined} />
         )
       ) : filasMapa.length === 0 ? (
         <p className="muted">Ninguna ruta de {tab} coincide con los filtros.</p>
