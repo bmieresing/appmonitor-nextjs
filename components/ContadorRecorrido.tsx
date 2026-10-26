@@ -11,7 +11,7 @@ import { useTheme } from "./ThemeProvider";
 import { estadoColor, productColor } from "@/lib/theme";
 import { miles } from "@/lib/format";
 import { acumuladoHasta, hhmm, type EventoVisita } from "@/lib/tiempo";
-import { kmHasta } from "@/lib/gps";
+import { kmHasta, odometroHasta } from "@/lib/gps";
 import type { PuntoGps } from "@/lib/types";
 
 const km = (v: number) => v.toLocaleString("es-CL", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -25,6 +25,7 @@ export default function ContadorRecorrido({ eventos, total, minuto, traza }: {
 }) {
   const { tokens: t } = useTheme();
   const a = useMemo(() => acumuladoHasta(eventos, minuto), [eventos, minuto]);
+  const odo = odometroHasta(traza, minuto);
   const kms = kmHasta(traza, minuto);
   const max = Math.max(1, ...a.productos.map((p) => p.litros));
   const u = a.ultima?.punto;
@@ -37,40 +38,53 @@ export default function ContadorRecorrido({ eventos, total, minuto, traza }: {
         <div className="cr-bloque">
           <div className="cr-tit">Recorrido</div>
           <div className="cr-grande tnum"><span key={km(kms)} className="cr-flash">🚚 {km(kms)}</span> <small>km</small></div>
+          {/* Lecturas del odómetro del equipo GPS: la del primer reporte del día y
+              la del último hasta este minuto (los km de arriba son la diferencia). */}
+          {odo && (
+            <>
+              <div className="cr-fila"><span>Odómetro inicial</span><b className="tnum">{km(odo.ini)} km</b></div>
+              <div className="cr-fila"><span>Odómetro final</span><b key={km(odo.fin)} className="cr-flash tnum">{km(odo.fin)} km</b></div>
+            </>
+          )}
         </div>
       )}
 
-      <div className="cr-bloque">
-        <div className="cr-tit">Visitas</div>
-        <div className="cr-grande tnum">
-          <span key={a.hechas} className="cr-flash">{miles(a.hechas)}</span> <small>de {miles(total)}</small>
-        </div>
-        <div className="cr-fila">
-          <span style={{ color: t.good }}>✔ Exitosas</span>
-          <b key={a.exitosas} className="cr-flash tnum" style={{ color: t.good }}>{miles(a.exitosas)}</b>
-        </div>
-        <div className="cr-fila">
-          <span style={{ color: t.critical }}>✖ Fallidas</span>
-          <b key={a.fallidas} className="cr-flash tnum" style={{ color: t.critical }}>{miles(a.fallidas)}</b>
-        </div>
-      </div>
+      {/* Camión sin ruta asignada (solo GPS): no hay visitas ni litros que contar. */}
+      {total > 0 && (
+        <>
+          <div className="cr-bloque">
+            <div className="cr-tit">Visitas</div>
+            <div className="cr-grande tnum">
+              <span key={a.hechas} className="cr-flash">{miles(a.hechas)}</span> <small>de {miles(total)}</small>
+            </div>
+            <div className="cr-fila">
+              <span style={{ color: t.good }}>✔ Exitosas</span>
+              <b key={a.exitosas} className="cr-flash tnum" style={{ color: t.good }}>{miles(a.exitosas)}</b>
+            </div>
+            <div className="cr-fila">
+              <span style={{ color: t.critical }}>✖ Fallidas</span>
+              <b key={a.fallidas} className="cr-flash tnum" style={{ color: t.critical }}>{miles(a.fallidas)}</b>
+            </div>
+          </div>
 
-      <div className="cr-bloque">
-        <div className="cr-tit">Recolectado</div>
-        <div className="cr-grande tnum"><span key={a.litros} className="cr-flash">{miles(a.litros)}</span> <small>L</small></div>
-        {a.productos.length === 0
-          ? <div className="cr-vacio">Todavía nada</div>
-          : a.productos.map((p) => {
-              const color = productColor(p.producto);
-              return (
-                <div className="cr-prod" key={p.producto} title={`${p.producto}: ${miles(p.litros)} L`}>
-                  <div className="cr-prod-fill" style={{ width: `${Math.max(4, (p.litros / max) * 100)}%`, background: `${color}26` }} />
-                  <span className="cr-prod-nom" style={{ color }}>{p.producto}</span>
-                  <b key={p.litros} className="cr-flash tnum" style={{ color }}>{miles(p.litros)}</b>
-                </div>
-              );
-            })}
-      </div>
+          <div className="cr-bloque">
+            <div className="cr-tit">Recolectado</div>
+            <div className="cr-grande tnum"><span key={a.litros} className="cr-flash">{miles(a.litros)}</span> <small>L</small></div>
+            {a.productos.length === 0
+              ? <div className="cr-vacio">Todavía nada</div>
+              : a.productos.map((p) => {
+                  const color = productColor(p.producto);
+                  return (
+                    <div className="cr-prod" key={p.producto} title={`${p.producto}: ${miles(p.litros)} L`}>
+                      <div className="cr-prod-fill" style={{ width: `${Math.max(4, (p.litros / max) * 100)}%`, background: `${color}26` }} />
+                      <span className="cr-prod-nom" style={{ color }}>{p.producto}</span>
+                      <b key={p.litros} className="cr-flash tnum" style={{ color }}>{miles(p.litros)}</b>
+                    </div>
+                  );
+                })}
+          </div>
+        </>
+      )}
 
       {u && (
         // El key con el local hace que la tarjeta entre de nuevo con cada visita.

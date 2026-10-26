@@ -97,13 +97,28 @@ export function inicioMovimiento(puntos: PuntoGps[] | null | undefined): number 
  *  del historial anteriores. No se suma la distancia entre puntos: el filtro de
  *  calidad y los cortes de señal la dejarían corta. */
 export function kmHasta(puntos: PuntoGps[] | null | undefined, minuto: number): number | null {
+  const o = odometroHasta(puntos, minuto);
+  return o === null ? null : Math.max(0, o.fin - o.ini);
+}
+
+/** Lectura del odómetro del equipo, en km: la del primer reporte del día y la del
+ *  último hasta `minuto` (antes del primer reporte, la misma inicial). null si la
+ *  traza no trae odómetro. */
+export function odometroHasta(puntos: PuntoGps[] | null | undefined, minuto: number): { ini: number; fin: number } | null {
   if (!puntos || puntos.length === 0) return null;
   let ini: number | null = null;
   for (const p of puntos) if (p[3] != null) { ini = p[3]; break; }
   if (ini === null) return null;
   let fin: number | null = null;
   for (let i = puntosHasta(puntos, minuto) - 1; i >= 0 && fin === null; i--) fin = puntos[i][3] ?? null;
-  return fin === null ? 0 : Math.max(0, (fin - ini) / 1000);
+  return { ini: ini / 1000, fin: (fin ?? ini) / 1000 };
+}
+
+/** Primer reporte del día, o null sin GPS. Es el inicio de la reproducción de un
+ *  camión que no salió (inicioMovimiento = null) y no tiene visitas: igual hay un
+ *  día de reportes que mirar, aunque sea en el patio. */
+export function inicioTraza(puntos: PuntoGps[] | null | undefined): number | null {
+  return puntos && puntos.length > 0 ? puntos[0][0] : null;
 }
 
 /** Último reporte del día, o null sin GPS. La reproducción termina en el más

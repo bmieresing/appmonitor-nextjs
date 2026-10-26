@@ -6,7 +6,7 @@
 // choferes y se le pega la cabecera del chofer (nombre, ruta, tripulación), que
 // es justo lo que falta para filtrar y para resolver el centro/color. Así el
 // mapa no duplica ni un byte en el JSON que se repolla cada 60 s.
-import type { DetalleLocal, Snapshot } from "./types";
+import type { DetalleLocal, Gps, Snapshot } from "./types";
 
 export interface PuntoMapa extends DetalleLocal {
   chofer: string;
@@ -147,4 +147,21 @@ export function panelesPorChofer(
   return paneles.sort((a, b) =>
     ((a.centro ? ordenCentro.get(a.centro) ?? 998 : 999) - (b.centro ? ordenCentro.get(b.centro) ?? 998 : 999))
     || a.titulo.localeCompare(b.titulo));
+}
+
+/**
+ * Un panel por camión con GPS del día que no es el de ninguna ruta del snapshot:
+ * un domingo o feriado sin rutas, o un camión que salió sin ruta asignada. Sin
+ * locales, el mapa muestra solo su recorrido. El tramo sale de su último reporte
+ * (no hay centro de acopio del que sacarlo). Van al final de su tab, por patente.
+ */
+export function panelesSoloGps(gps: Gps, patentesConRuta: Set<string>): Panel[] {
+  return Object.keys(gps)
+    .filter((pat) => !patentesConRuta.has(pat) && gps[pat].puntos.length > 0)
+    .sort()
+    .map((pat) => ({
+      id: `gps|${pat}`, titulo: `🚚 ${pat}`, subtitulo: null, patente: pat,
+      tramo: tramoDe(undefined, new Map(), gps[pat].ultimo[1]),
+      puntos: [], realizados: 0, litros: 0, pct: 0,
+    }));
 }

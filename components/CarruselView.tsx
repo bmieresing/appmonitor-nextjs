@@ -234,7 +234,7 @@ function MapaRuta({ c, rd, repro, rep, onRepro, traza, jornada }: {
   rep: Reproduccion;
   onRepro: (v: boolean) => void;
   traza: TrazaGps | null;
-  /** Qué se puede reproducir (jornadaDe); null si el camión no salió ni hay visitas. */
+  /** Qué se puede reproducir (jornadaDe); null si no hay visitas ni GPS. */
   jornada: { inicio: number; fin: number } | null;
 }) {
   const { tokens: t } = useTheme();

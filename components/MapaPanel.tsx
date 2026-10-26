@@ -24,14 +24,16 @@ import { estadoColor, semaforo } from "@/lib/theme";
 import { miles } from "@/lib/format";
 import { hhmm, ventanaDe, type FilaTiempo, type Ventana } from "@/lib/tiempo";
 import { tieneCoords, type Panel, type PuntoMapa } from "@/lib/mapa";
-import { finTraza, inicioMovimiento } from "@/lib/gps";
+import { finTraza, inicioMovimiento, inicioTraza } from "@/lib/gps";
 import type { TrazaGps } from "@/lib/types";
 
 /** Desde dónde hasta dónde se reproduce una ruta: de la salida de su camión (o su
  *  primera visita, lo que pase antes) a lo último que pasó — su última visita o
- *  su último reporte GPS. null si no hay nada que reproducir. */
+ *  su último reporte GPS. Si el camión no salió y no hay visitas, desde su primer
+ *  reporte: sin eso no había ▶ aunque el mapa mostrara recorrido. null si no hay
+ *  nada que reproducir. */
 export function jornadaDe(fila: FilaTiempo, traza: TrazaGps | null): { inicio: number; fin: number } | null {
-  const salida = inicioMovimiento(traza?.puntos);
+  const salida = inicioMovimiento(traza?.puntos) ?? (fila.primera === null ? inicioTraza(traza?.puntos) : null);
   const inicio = Math.min(fila.primera ?? Infinity, salida ?? Infinity);
   const fin = Math.max(fila.ultima ?? -1, finTraza(traza?.puntos) ?? -1);
   return Number.isFinite(inicio) && fin >= 0 ? { inicio, fin } : null;
@@ -121,10 +123,16 @@ export default function MapaPanel({ fila, traza, ventana, colorCentro, fitKey, r
           )}
         </div>
         <div className="mapa-panel-acciones">
-          <div className="mapa-panel-kpis">
-            <b className="tnum" style={{ color: arrancada ? semaforo(pct, t) : "var(--muted)" }}>{pct}%</b>
-            <span className="mapa-panel-det tnum">{detalle}</span>
-          </div>
+          {/* Camión con GPS pero sin ruta del día (domingo, feriado): no hay avance
+              que medir, solo su recorrido. */}
+          {total > 0 ? (
+            <div className="mapa-panel-kpis">
+              <b className="tnum" style={{ color: arrancada ? semaforo(pct, t) : "var(--muted)" }}>{pct}%</b>
+              <span className="mapa-panel-det tnum">{detalle}</span>
+            </div>
+          ) : (
+            <div className="mapa-panel-kpis"><span className="mapa-panel-det">solo GPS</span></div>
+          )}
           {botonPlay}
           <BotonAgrandar onClick={() => setGrande(true)} />
         </div>
@@ -148,7 +156,11 @@ export default function MapaPanel({ fila, traza, ventana, colorCentro, fitKey, r
           )}
           onClose={() => setGrande(false)}
           acciones={botonPlay}
-          lateral={rep ? <ContadorRecorrido eventos={fila.eventos} total={total} minuto={rep.minuto} traza={traza?.puntos} /> : undefined}
+          // Sin reproducir, el contador muestra el día completo (hasta lo último
+          // que pasó): así los km y el odómetro se ven sin tener que darle ▶.
+          lateral={rep || jornada
+            ? <ContadorRecorrido eventos={fila.eventos} total={total} minuto={rep ? rep.minuto : jornada!.fin} traza={traza?.puntos} />
+            : undefined}
           pie={rep ? (
             <>
               <ControlesReproduccion rep={rep}>{conteo}</ControlesReproduccion>

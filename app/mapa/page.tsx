@@ -22,11 +22,12 @@ import TimelineRutas from "@/components/TimelineRutas";
 import ReproduccionRutas from "@/components/ReproduccionRutas";
 import { useSnap } from "@/components/SnapshotContext";
 import { useGps } from "@/components/useGps";
-import { finTraza, inicioMovimiento, trazaDe } from "@/lib/gps";
+import { jornadaDe } from "@/components/MapaPanel";
+import { normalizarPatente, trazaDe } from "@/lib/gps";
 import { useCentroColores } from "@/components/CentroColores";
 import { useTheme } from "@/components/ThemeProvider";
 import {
-  puntosDeSnapshot, panelesPorChofer, tieneCoords, tramosPorCentro, TRAMOS,
+  puntosDeSnapshot, panelesPorChofer, panelesSoloGps, tieneCoords, tramosPorCentro, TRAMOS,
   type PuntoMapa, type Tramo,
 } from "@/lib/mapa";
 import { filasTiempo, ventanaDe, aMinutos, sinSoporteHora } from "@/lib/tiempo";
@@ -85,27 +86,35 @@ export default function MapaPage() {
     () => filasTiempo(panelesTiempoTodos.filter((p) => p.tramo === tab)),
     [panelesTiempoTodos, tab],
   );
+  // Camiones con GPS que no son de ninguna ruta del día (un domingo, todos): un
+  // panel con su recorrido y sin locales. Solo sin filtros, que son todos de locales.
+  const sinFiltro = !estado && !soloAlta && !soloEmerg;
+  const panelesGps = useMemo(() => {
+    if (!sinFiltro) return [];
+    const conRuta = new Set(datos.todos.map((p) => normalizarPatente(p.patente)).filter(Boolean));
+    return panelesSoloGps(gps, conRuta);
+  }, [sinFiltro, datos.todos, gps]);
   // En Mapas entra la ruta que tenga algo que dibujar: un local ubicado o el GPS de
-  // su camión. Las que no, quedan en el chip "sin ubicación".
+  // su camión. Las que no, quedan en el chip "sin ubicación". La línea de tiempo
+  // sigue siendo solo de rutas: un camión sin locales no tiene visitas que ubicar.
   const filasMapa = useMemo(
-    () => filas.filter((f) => f.ruta.puntos.some(tieneCoords) || trazaDe(gps, f.ruta.patente)),
-    [filas, gps],
+    () => filas.filter((f) => f.ruta.puntos.some(tieneCoords) || trazaDe(gps, f.ruta.patente))
+      .concat(filasTiempo(panelesGps.filter((p) => p.tramo === tab))),
+    [filas, gps, panelesGps, tab],
   );
   // La ventana horaria sale de TODOS los tramos, no solo del visible: así el eje no
   // se mueve al cambiar de tab y las horas se comparan entre tramos.
-  // Entran también la salida y el último reporte de cada camión con GPS: la
-  // reproducción arranca y termina ahí, y el cursor tiene que caer dentro del eje.
+  // Entra también la jornada de cada camión con GPS (de su salida, o su primer
+  // reporte si no salió, a su último reporte): la reproducción arranca y termina
+  // ahí, y el cursor tiene que caer dentro del eje.
   const ventana = useMemo(() => {
     const mins = visiblesTodos.map((p) => aMinutos(p.hora)).filter((m): m is number => m !== null);
-    for (const p of panelesTiempoTodos) {
-      const puntos = trazaDe(gps, p.patente)?.puntos;
-      const salida = inicioMovimiento(puntos);
-      const fin = finTraza(puntos);
-      if (salida !== null) mins.push(salida);
-      if (fin !== null) mins.push(fin);
+    for (const f of filasTiempo([...panelesTiempoTodos, ...panelesGps])) {
+      const j = jornadaDe(f, trazaDe(gps, f.ruta.patente));
+      if (j) mins.push(j.inicio, j.fin);
     }
     return ventanaDe(mins);
-  }, [visiblesTodos, panelesTiempoTodos, gps]);
+  }, [visiblesTodos, panelesTiempoTodos, panelesGps, gps]);
 
   const sinHoras = useMemo(() => sinSoporteHora(datos.todos), [datos.todos]);
 
@@ -115,7 +124,9 @@ export default function MapaPage() {
   useEffect(() => { setFit(filtroKey); }, [filtroKey]);
 
   if (!snap) return <p className="muted">Cargando…</p>;
-  if (datos.total === 0) return <p className="muted">Sin locales asignados para hoy.</p>;
+  if (datos.total === 0 && panelesGps.length === 0) {
+    return <p className="muted">Sin locales asignados ni recorridos GPS para este día.</p>;
+  }
   // Snapshot de un publisher viejo: le falta el campo que alimenta el modo activo.
   // Se avisa por modo, no para toda la página — un snapshot puede tener coordenadas
   // y no horas (el caso del despliegue intermedio).
@@ -164,10 +175,14 @@ export default function MapaPage() {
           const locales = ps.reduce((s, p) => s + p.puntos.length, 0);
           const hechos = ps.reduce((s, p) => s + p.realizados, 0);
           const pct = locales > 0 ? Math.round((hechos / locales) * 100) : 0;
+          const soloGps = panelesGps.filter((p) => p.tramo === tr.id).length;
           return (
             <button key={tr.id} className={`mapa-tab${tab === tr.id ? " active" : ""}`} onClick={() => setTab(tr.id)}>
               <span className="mapa-tab-tit">{tr.titulo}</span>
-              <span className="mapa-tab-sub">{ps.length} {ps.length === 1 ? "ruta" : "rutas"} · {tr.detalle}</span>
+              <span className="mapa-tab-sub">
+                {ps.length} {ps.length === 1 ? "ruta" : "rutas"}
+                {soloGps > 0 && <> + {soloGps} 🚚 solo GPS</>} · {tr.detalle}
+              </span>
               <span className="mapa-tab-kpi">
                 <b className="tnum" style={{ color: locales ? semaforo(pct, t) : "var(--muted)" }}>{pct}%</b>
                 <span className="tnum">{miles(hechos)}/{miles(locales)}</span>
