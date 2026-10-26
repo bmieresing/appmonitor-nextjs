@@ -226,6 +226,8 @@ export interface DetencionGps {
   tramos?: TramoMotor[];
   /** Los eventos del equipo no cuadran con el total de Pegasus: sin detalle. */
   motorNoCuadra?: boolean;
+  /** Solo en la en curso: minuto del último reporte del camión. */
+  ultimoReporte?: number;
 }
 
 export interface TrazaGps {

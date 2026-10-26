@@ -14,7 +14,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { estiloRuta } from "@/components/CentroColores";
 import { useTheme } from "@/components/ThemeProvider";
 import { useAlarmas } from "@/components/useAlarmas";
-import { alarmasDeRuta, encendidosEn, finDetencion, minutoAhora, textoDetencion, type AlarmaEnRuta } from "@/lib/gps";
+import { alarmasDeRuta, finDetencion, minutoAhora, textoDetencion, type AlarmaEnRuta } from "@/lib/gps";
 import type { DetencionGps } from "@/lib/types";
 import { estadoColor, semaforo, type Tokens } from "@/lib/theme";
 import { miles } from "@/lib/format";
@@ -222,21 +222,26 @@ export default function TimelineRutas({
                   const fin = finDetencion(d, ahora ?? minutoAhora());
                   const ini = Math.max(d.desde, ventana.desde), hasta = Math.min(fin, ventana.hasta);
                   if (hasta <= ini) return null;
-                  // Gris = detenido con el motor apagado (o sin dato); encima, en ámbar,
-                  // los tramos con el motor encendido. Posiciones relativas a la franja.
+                  // Tres estados, cada uno con su color: gris = motor apagado, ámbar =
+                  // encendido, rayado = sin datos (el equipo dejó de reportar, o día sin
+                  // eventos de motor). Posiciones relativas a la franja.
                   const ancho = hasta - ini;
+                  const tramos = d.tramos ?? [{ ini, fin: hasta, encendido: null }];
                   return (
-                    <span key={`d${d.desde}`} className={`tl-detenida has-tip${d.hasta === null ? " en-curso" : ""}`}
+                    <span key={`d${d.desde}`} className="tl-detenida has-tip"
                       data-tip={textoDetencion(d, ahora ?? minutoAhora())}
                       style={{
                         left: `${posicion(ini, ventana)}%`,
                         width: `${Math.max(0.4, posicion(hasta, ventana) - posicion(ini, ventana))}%`,
                         opacity: cursor !== null && d.desde > cursor ? 0.35 : 1,
                       }}>
-                      {encendidosEn(d, ini, hasta).map((m) => (
-                        <i key={m.ini} className="tl-motor"
-                          style={{ left: `${((m.ini - ini) / ancho) * 100}%`, width: `${((m.fin - m.ini) / ancho) * 100}%` }} />
-                      ))}
+                      {tramos.filter((m) => m.fin > ini && m.ini < hasta).map((m) => {
+                        const a = Math.max(ini, m.ini), b = Math.min(hasta, m.fin);
+                        return (
+                          <i key={m.ini} className={`tl-motor ${m.encendido === true ? "on" : m.encendido === false ? "off" : "sin"}`}
+                            style={{ left: `${((a - ini) / ancho) * 100}%`, width: `${((b - a) / ancho) * 100}%` }} />
+                        );
+                      })}
                     </span>
                   );
                 })}
@@ -333,12 +338,17 @@ export default function TimelineRutas({
         </span>
         {detenciones && (
           <span className="tl-pie-item">
-            <span className="tl-detenida-muestra" /> camión detenido (GPS, más de 4 min)
+            <span className="tl-detenida-muestra off" /> detenido, motor apagado
           </span>
         )}
         {detenciones && (
           <span className="tl-pie-item">
-            <span className="tl-detenida-muestra tl-motor-muestra" /> detenido con el motor encendido
+            <span className="tl-detenida-muestra on" /> detenido, motor encendido
+          </span>
+        )}
+        {detenciones && (
+          <span className="tl-pie-item">
+            <span className="tl-detenida-muestra sin" /> detenido, sin datos del motor
           </span>
         )}
         <span className="tl-pie-nota">

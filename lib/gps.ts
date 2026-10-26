@@ -112,6 +112,9 @@ export function kmHasta(puntos: PuntoGps[] | null | undefined, minuto: number): 
 export function detencionesDelDia(traza: TrazaGps | null | undefined): DetencionGps[] {
   const conMotor = !!traza?.puntos.some((p) => p[4] != null);
   return (traza?.detenciones ?? []).filter((d) => !d.previo).map((d) => {
+    // La en curso guarda el último reporte: si el camión se quedó sin señal, el
+    // tooltip lo dice en vez de dar por hecho que "sigue detenido".
+    if (d.hasta === null && traza) d = { ...d, ultimoReporte: traza.ultimo[0] };
     if (!conMotor) return d;
     const tramos = tramosMotor(traza!.puntos, d.desde, d.hasta ?? 1440);
     return cuadraMotor(d, tramos) ? { ...d, tramos } : { ...d, motorNoCuadra: true };
@@ -140,17 +143,44 @@ export function tramosMotor(puntos: PuntoGps[], desde: number, hasta: number): T
   const n0 = puntosHasta(puntos, desde);
   let estado: boolean | null = null;
   for (let i = n0 - 1; i >= 0 && estado === null; i--) estado = puntos[i][4] ?? null;
+  // Último reporte visto (cualquiera): el estado solo vale mientras el equipo sigue
+  // reportando. Sin esto, un camión que se quedó sin señal después de un encendido
+  // salía "encendido" por horas (VLSK54, 26-10: último reporte 09:27, 1 h 57 min
+  // inventados).
+  let ref: number | null = n0 > 0 ? puntos[n0 - 1][0] : null;
   const tramos: TramoMotor[] = [];
-  let ini = desde;
+  const agregar = (a: number, b: number, encendido: boolean | null) => {
+    if (b <= a) return;
+    const ultimo = tramos[tramos.length - 1];
+    if (ultimo && ultimo.encendido === encendido && ultimo.fin === a) ultimo.fin = b;
+    else tramos.push({ ini: a, fin: b, encendido });
+  };
+  let t = desde;
+  // Avanza de `t` a `b` con el estado actual, hasta donde lo sostienen los reportes.
+  const avanzar = (b: number) => {
+    if (estado === null || ref === null) agregar(t, b, null);
+    else {
+      const limite = Math.max(t, ref + vigenciaMotor(estado));
+      agregar(t, Math.min(b, limite), estado);
+      agregar(Math.min(b, limite), b, null);
+    }
+    t = b;
+  };
   for (let i = n0; i < puntos.length && puntos[i][0] < hasta; i++) {
+    avanzar(puntos[i][0]);
+    ref = puntos[i][0];
     const m = puntos[i][4];
-    if (m == null || m === estado) continue;
-    if (puntos[i][0] > ini) tramos.push({ ini, fin: puntos[i][0], encendido: estado });
-    ini = puntos[i][0];
-    estado = m;
+    if (m != null) estado = m;
   }
-  tramos.push({ ini, fin: hasta, encendido: estado });
+  avanzar(hasta);
   return tramos;
+}
+
+/** Cuánto sin reportes sostiene un estado del motor. Encendido, el equipo reporta
+ *  cada ~30 s (VLSK54, 23-10): más de INTERPOLA_MAX_MIN callado es falta de datos.
+ *  Apagado reporta una vez por hora: hasta VIGENCIA_MIN es normal. */
+function vigenciaMotor(encendido: boolean): number {
+  return encendido ? INTERPOLA_MAX_MIN : VIGENCIA_MIN;
 }
 
 /** Tramos con el motor encendido de una detención, recortados a [desde, hasta]. */
@@ -194,13 +224,22 @@ export function minutosDetenido(dets: DetencionGps[], desde: number, hasta: numb
  *  10:41–10:42"). Sin tramos (días anteriores), el total que da Pegasus. */
 export function textoDetencion(d: DetencionGps, ahora: number): string {
   const fin = finDetencion(d, ahora);
-  const tramo = d.hasta === null ? `desde ${hhmm(d.desde)} · sigue detenido` : `${hhmm(d.desde)}–${hhmm(fin)}`;
+  const callado = d.hasta === null && d.ultimoReporte != null && ahora - d.ultimoReporte > INTERPOLA_MAX_MIN;
+  const tramo = d.hasta !== null ? `${hhmm(d.desde)}–${hhmm(fin)}`
+    : callado ? `desde ${hhmm(d.desde)} · sin reportes desde ${hhmm(d.ultimoReporte!)}`
+    : `desde ${hhmm(d.desde)} · sigue detenido`;
   let motor = "";
   if (d.tramos) {
-    const enc = encendidosEn(d, d.desde, fin).filter((t) => t.fin - t.ini >= 0.5);
-    const total = enc.reduce((s, t) => s + (t.fin - t.ini), 0);
-    const lista = enc.slice(0, 4).map((t) => `${hhmm(t.ini)}–${hhmm(t.fin)}`).join(" · ") + (enc.length > 4 ? " …" : "");
-    motor = total >= 1 ? `\nmotor encendido ${duracion(total)}: ${lista}` : "\nmotor apagado";
+    // Resumen por estado, sin la lista de horarios: eso lo muestra la franja.
+    const suma = (e: boolean | null) => d.tramos!
+      .filter((t) => t.encendido === e && t.fin > d.desde && t.ini < fin)
+      .reduce((s, t) => s + Math.min(fin, t.fin) - Math.max(d.desde, t.ini), 0);
+    const partes: string[] = [];
+    const enc = suma(true), apa = suma(false), sin = suma(null);
+    if (enc >= 1) partes.push(`motor encendido ${duracion(enc)}`);
+    if (apa >= 1) partes.push(`apagado ${duracion(apa)}`);
+    if (sin >= 1) partes.push(`sin datos ${duracion(sin)}`);
+    motor = partes.length ? `\n${partes.join(" · ")}` : "";
   } else if (d.motor_min !== null && d.motor_min >= 1) {
     motor = `\nmotor encendido ${duracion(d.motor_min)} en total (sin detalle de cuándo)`;
   } else if (d.motor_min !== null) {
