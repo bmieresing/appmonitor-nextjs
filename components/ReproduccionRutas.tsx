@@ -32,12 +32,19 @@ export default function ReproduccionRutas({ filas, ventana, colorCentro, gps, fi
   // El tramo se reproduce de lo primero a lo último que pasó en cualquiera de sus
   // rutas: la salida del primer camión (o la primera visita) y el último reporte o
   // visita. Antes y después no pasa nada y solo se vería el cursor en vacío.
+  // Un camión que no salió ni tiene visitas (quieto) no adelanta el inicio: su
+  // jornada parte en su primer reporte, de madrugada en el patio, y arrastraría el
+  // tramo entero a las 00:00. Solo cuenta si ninguna ruta del tramo se movió.
   const { inicio, fin } = useMemo(() => {
-    let ini = Infinity, f = -1;
+    let ini = Infinity, iniQuieto = Infinity, f = -1;
     for (const fila of filas) {
       const j = jornadaDe(fila, trazaDe(gps, fila.ruta.patente));
-      if (j) { ini = Math.min(ini, j.inicio); f = Math.max(f, j.fin); }
+      if (!j) continue;
+      if (j.quieto) iniQuieto = Math.min(iniQuieto, j.inicio);
+      else ini = Math.min(ini, j.inicio);
+      f = Math.max(f, j.fin);
     }
+    if (!Number.isFinite(ini)) ini = iniQuieto;
     return { inicio: Number.isFinite(ini) ? ini : ventana.hasta, fin: f };
   }, [filas, gps, ventana.hasta]);
   const totalVisitas = useMemo(() => filas.reduce((s, f) => s + f.eventos.length, 0), [filas]);

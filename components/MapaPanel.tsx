@@ -31,13 +31,16 @@ import type { TrazaGps } from "@/lib/types";
 /** Desde dónde hasta dónde se reproduce una ruta: de la salida de su camión (o su
  *  primera visita, lo que pase antes) a lo último que pasó — su última visita o
  *  su último reporte GPS. Si el camión no salió y no hay visitas, desde su primer
- *  reporte: sin eso no había ▶ aunque el mapa mostrara recorrido. null si no hay
- *  nada que reproducir. */
-export function jornadaDe(fila: FilaTiempo, traza: TrazaGps | null): { inicio: number; fin: number } | null {
-  const salida = inicioMovimiento(traza?.puntos) ?? (fila.primera === null ? inicioTraza(traza?.puntos) : null);
+ *  reporte: sin eso no había ▶ aunque el mapa mostrara recorrido. `quieto` marca
+ *  ese último caso (el inicio es la noche en el patio, no una salida). null si no
+ *  hay nada que reproducir. */
+export function jornadaDe(fila: FilaTiempo, traza: TrazaGps | null): { inicio: number; fin: number; quieto: boolean } | null {
+  const movimiento = inicioMovimiento(traza?.puntos);
+  const quieto = movimiento === null && fila.primera === null;
+  const salida = movimiento ?? (quieto ? inicioTraza(traza?.puntos) : null);
   const inicio = Math.min(fila.primera ?? Infinity, salida ?? Infinity);
   const fin = Math.max(fila.ultima ?? -1, finTraza(traza?.puntos) ?? -1);
-  return Number.isFinite(inicio) && fin >= 0 ? { inicio, fin } : null;
+  return Number.isFinite(inicio) && fin >= 0 ? { inicio, fin, quieto } : null;
 }
 
 export default function MapaPanel({ fila, traza, ventana, colorCentro, fitKey, repTramo }: {
