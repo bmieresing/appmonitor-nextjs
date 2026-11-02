@@ -15,6 +15,9 @@ import { createClient } from "@/lib/supabase/client";
 // del selector en Parámetros). No pinta la card hasta que se guarda.
 export const COLOR_CENTRO_DEFAULT = "#2a78d6";
 
+// Formato de color aceptado (el mismo CHECK que tiene monitor_centro_color).
+const HEX = /^#[0-9a-fA-F]{6}$/;
+
 // Prefijo de una tripulación: en MAYÚSCULAS y sin el número final ("NCH 4" → "NCH",
 // "La Serena 1" → "LA SERENA", "Arica" → "ARICA"). Es la clave del mapeo.
 export function prefijoDe(tripulacion: string): string {
@@ -103,7 +106,10 @@ export function CentroColoresProvider({ children }: { children: React.ReactNode 
       ]);
       if (colRes.error) throw new Error(colRes.error.message);
       if (mapRes.error) throw new Error(mapRes.error.message);
-      setColores(Object.fromEntries((colRes.data ?? []).map((r) => [r.centro as string, r.color as string])));
+      // Solo hex: el color termina dentro del SVG de los pines del mapa.
+      setColores(Object.fromEntries((colRes.data ?? [])
+        .filter((r) => HEX.test(r.color as string))
+        .map((r) => [r.centro as string, r.color as string])));
       setZonaMap((mapRes.data ?? []) as ZonaMapRow[]);
       setError(null);
     } catch (e) {
@@ -157,6 +163,7 @@ export function CentroColoresProvider({ children }: { children: React.ReactNode 
   );
 
   const setColor = useCallback(async (centro: string, color: string) => {
+    if (!HEX.test(color)) { setError(`Color inválido: ${color}`); return; }
     setColores((m) => ({ ...m, [centro]: color }));   // optimista: pinta al instante
     const { error } = await createClient()
       .from("monitor_centro_color")

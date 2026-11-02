@@ -6,24 +6,23 @@ oscuro** con toggle, sidebar de navegación y un sistema de diseño propio
 (paleta validada CVD-safe de la skill `dataviz`).
 
 Esta carpeta (`nextjs/`) es **solo la app** — es lo que se despliega en Vercel
-(Root Directory = `App Monitor Next Supabase/nextjs`). El publisher Python vive
-aparte, en la carpeta hermana **`../supabase/`**, y corre fuera de Vercel.
+(Root Directory = `App Monitor Next Supabase/nextjs`). Los Lambdas (publisher y
+GPS) viven aparte, en la carpeta hermana **`../lambda/`**, y corren en AWS.
 
 ## Cómo obtiene los datos
 
 ```
-                     ┌────────────────────────── Vercel ──────────────────────────┐
-  Supabase Cron ─▶   Supabase              ──▶   app Next (cliente Supabase)   ──▶  UI
-  POST al Lambda,    public.monitor_snapshot     lee con anon key (RLS solo      (polling
-  rellena con su JSON (el cron la rellena)        lectura) vía Data API)          60 s)
-                     (connection string)
+  Supabase (snapshot, historial, GPS)  ──clave secreta──▶  rutas /api  ──▶  UI (poll 60 s)
+  (lo rellena el trigger del cron)                         (middleware: sesión o IP oficina)
 ```
 
-**Solo datos reales.** La app lee `public.monitor_snapshot` con
-**`@supabase/supabase-js`** usando `NEXT_PUBLIC_SUPABASE_URL` +
-`NEXT_PUBLIC_SUPABASE_ANON_KEY` (mismo patrón que app-tareas; la anon key es
-pública y por RLS **solo lee**). Si faltan las env o todavía no hay fila, la app
-muestra **"no hay datos"** — no hay modo demo.
+**Solo datos reales.** Las rutas `/api` (`lib/db.ts`) leen con
+**`@supabase/supabase-js`** y la **clave secreta** `SUPABASE_SECRET_KEY`, que solo
+existe en el servidor. La anon key (`NEXT_PUBLIC_…`) es pública —viaja en el
+bundle— y solo la usan el login, el botón Actualizar (`force_refresh`), Parámetros
+(colores y mapeo) y el zoom por usuario; con ella no se lee ni el snapshot ni el
+GPS. Si faltan las env o todavía no hay fila, la app muestra **"no hay datos"** —
+no hay modo demo.
 
 > El **publisher no corre en Vercel** (deps pesadas + RDS privadas + Google
 > Sheets). Es un **Lambda** que calcula el snapshot y lo devuelve; el **cron de
@@ -34,22 +33,24 @@ muestra **"no hay datos"** — no hay modo demo.
 
 ```
 app/
-  layout.tsx  api/snapshot/route.ts   # sirve el snapshot como JSON (503 si no hay datos)
-  global|santiago|regiones|recolecciones|rendimiento|carrusel|carrusel-zonas|parametros/
-components/  Shell · ThemeProvider · ReactECharts · KpiRow · MetricBar · ZoneView · CarruselView …
+  layout.tsx  middleware.ts (raíz)    # middleware: sesión o IP de la oficina
+  api/snapshot · api/gps · api/gps/estado · api/gps/alarmas · api/gps/odometro
+  global|santiago|regiones|recolecciones|carrusel|carrusel-zonas|mapa|
+  estadisticas|alertas|flota|parametros|pantalla|login/
+components/  Shell · ThemeProvider · ReactECharts · KpiRow · ZoneView · CarruselView · Mapa* …
 lib/
   theme.ts charts.ts                  # tokens + builders ECharts (theme-aware)
-  db.ts types.ts format.ts            # db.ts = cliente Supabase (anon key)
+  db.ts types.ts format.ts            # db.ts = Supabase con la clave secreta (solo servidor)
 
-../lambda/                            # el publisher Python (backend), fuera de Vercel
-../supabase/                          # SQL de la tabla, cron y RLS
+../lambda/                            # publisher + Lambda GPS (AWS), fuera de Vercel
+../supabase/                          # SQL de tablas, RLS, cron, trigger y RPC
 ```
 
 ## Correr local
 
 ```bash
 npm install
-cp .env.example .env.local   # completar con la URL + anon key del proyecto Supabase
+cp .env.example .env.local   # URL, anon key, clave secreta y OFFICE_IPS (ver el archivo)
 npm run dev                  # → http://localhost:3004 (reiniciar tras editar .env.local)
 ```
 
@@ -60,13 +61,14 @@ Para que haya datos, el Lambda + el cron de Supabase deben estar andando (ver
 
 1. **Root Directory** del proyecto Vercel = `App Monitor Next Supabase/nextjs`.
 2. Framework: Next.js (autodetectado). Build: `next build`.
-3. **Env vars** (obligatorias, Settings → Environment Variables):
+3. **Env vars** (Settings → Environment Variables):
    - `NEXT_PUBLIC_SUPABASE_URL` = `https://<ref>.supabase.co`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = la anon key del proyecto.
-4. **Datos**: la tabla `public.monitor_snapshot` + RLS ya están creadas
-   (`../supabase/snapshot_schema.sql` + `../supabase/supabase_rls.sql`). El Lambda
-   (`../lambda/`) + el cron (`../supabase/supabase_cron.sql`) rellenan las filas
-   cada 5 min.
+   - `SUPABASE_SECRET_KEY` = la clave secreta (Settings → API Keys). **Sin**
+     `NEXT_PUBLIC`: salta la RLS y no puede llegar al navegador.
+   - `OFFICE_IPS` = IPs públicas de la oficina, separadas por coma (la tele).
+4. **Datos**: tablas, RLS, cron y trigger ya están creados (`../supabase/`). Los
+   Lambdas (`../lambda/`) + el cron rellenan las filas.
 
 Como Vercel usa `nextjs/` de Root Directory, las carpetas hermanas `../lambda/` y
 `../supabase/` quedan automáticamente fuera del build.
@@ -81,5 +83,5 @@ Como Vercel usa `nextjs/` de Root Directory, las carpetas hermanas `../lambda/` 
 - **Paleta**: categórica CVD-safe + status de la skill `dataviz` (validada).
 - **Tema**: toggle 🌙/☀️; recuerda la preferencia y arranca según el sistema.
 
-Puerto local 3004 (`rendering-docs` ocupa el 3003). Las 9 vistas repollan
+Puerto local 3004 (`rendering-docs` ocupa el 3003). Las vistas repollan
 `/api/snapshot` cada 60 s.

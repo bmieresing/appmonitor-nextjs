@@ -50,7 +50,11 @@ function esc(s: unknown): string {
 // del panel, no en el mapa, donde solo agrega ruido y solapamiento.
 export const PIN_W = 22, PIN_H = 28;
 
+// `color` puede venir de monitor_centro_color (lo edita cualquier usuario en
+// Parámetros) y este SVG se inyecta como HTML: se escapa siempre, aunque la tabla
+// ya exija hex con un CHECK.
 export function pinSvg(color: string, simbolo: string | null): string {
+  color = esc(color);
   const centro = simbolo
     ? `<text x="11" y="14.6" text-anchor="middle" font-size="11.5" font-weight="800" fill="#ffffff">${simbolo}</text>`
     : `<circle cx="11" cy="10.6" r="3.3" fill="#ffffff" fill-opacity="0.92"/>`;
@@ -87,7 +91,7 @@ export function PinLeyenda({ color, simbolo }: { color: string; simbolo?: string
     <span
       className="mapa-leg-pin"
       style={{ width: 13, height: 16.5 }}
-      // El SVG es una constante del módulo: no hay entrada de usuario.
+      // pinSvg escapa el color (puede ser el de un centro, editable en Parámetros).
       dangerouslySetInnerHTML={{ __html: pinSvg(color, simbolo ?? null).replace(`width="${PIN_W}" height="${PIN_H}"`, 'width="13" height="16.5"') }}
     />
   );

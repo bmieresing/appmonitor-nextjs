@@ -1,22 +1,33 @@
-// Acceso al snapshot. Lee la fila `public.monitor_snapshot` con el cliente de
-// Supabase (anon key, RLS solo-lectura) — mismo patrón que app-tareas.
+// Acceso a los datos del monitor (snapshot, historial, GPS) desde las rutas /api.
+// Lee con la clave SECRETA de Supabase (SUPABASE_SECRET_KEY, solo en el servidor:
+// sin NEXT_PUBLIC no llega nunca al navegador). Quién puede leer lo decide el
+// middleware —sesión iniciada o la tele desde la IP de la oficina—, no la RLS: así
+// `anon` no necesita permiso sobre estas tablas y la anon key pública, que viaja en
+// el bundle, no abre una puerta directa a Supabase que se salte el login.
 // Solo datos reales: si faltan las env o no hay fila, lanza error (no hay demo).
 import "server-only";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type PostgrestError, type SupabaseClient } from "@supabase/supabase-js";
 import type { LecturaAlarmas, LecturaGps, LecturaOdometro, Snapshot } from "./types";
 
 let client: SupabaseClient | null = null;
 
 function getClient(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const key = process.env.SUPABASE_SECRET_KEY;
   if (!url || !key) {
-    throw new Error("Faltan NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+    throw new Error("Faltan NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SECRET_KEY.");
   }
   if (!client) {
-    client = createClient(url, key, { auth: { persistSession: false } });
+    client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
   }
   return client;
+}
+
+// El detalle de Supabase (tabla, columna, función) queda en el log del servidor;
+// al cliente le llega un mensaje genérico, porque la ruta lo devuelve tal cual.
+function falla(error: PostgrestError): Error {
+  console.error("Supabase:", error.message, error.details ?? "");
+  return new Error("No se pudo leer la base de datos.");
 }
 
 export async function getSnapshot(): Promise<Snapshot> {
@@ -26,7 +37,7 @@ export async function getSnapshot(): Promise<Snapshot> {
     .select("data")
     .eq("id", 1)
     .maybeSingle();
-  if (error) throw new Error(`Supabase: ${error.message}`);
+  if (error) throw falla(error);
   if (!data) throw new Error("Todavía no hay snapshot en la base. Corré el publisher.");
   return data.data as Snapshot;
 }
@@ -49,7 +60,7 @@ export async function getSnapshotSiCambio(desde: string | null): Promise<Snapsho
   // que es el comportamiento seguro (peor caso, una transferencia de más).
   if (desde && !Number.isNaN(Date.parse(desde))) q = q.gt("generated_at", desde);
   const { data, error } = await q.maybeSingle();
-  if (error) throw new Error(`Supabase: ${error.message}`);
+  if (error) throw falla(error);
   return data ? (data.data as Snapshot) : null;
 }
 
@@ -64,7 +75,7 @@ export async function getSnapshotDia(dia: string): Promise<Snapshot> {
     .select("data")
     .eq("dia", dia)
     .maybeSingle();
-  if (error) throw new Error(`Supabase: ${error.message}`);
+  if (error) throw falla(error);
   if (!data) throw new Error(`No hay snapshot guardado del ${dia.split("-").reverse().join("-")}.`);
   return data.data as Snapshot;
 }
@@ -83,7 +94,7 @@ export async function getGps(desde: string | null, dia: string | null = null): P
   // `dia` va solo cuando se pide: así la lectura de hoy es la misma llamada de
   // siempre y no depende de la firma nueva de la RPC.
   const { data, error } = await sb.rpc("gps_del_dia", dia ? { desde: valido, dia } : { desde: valido });
-  if (error) throw new Error(`Supabase: ${error.message}`);
+  if (error) throw falla(error);
   return data as LecturaGps;
 }
 
@@ -95,7 +106,7 @@ export async function getGps(desde: string | null, dia: string | null = null): P
 export async function getAlarmas(dia: string | null = null): Promise<LecturaAlarmas> {
   const sb = getClient();
   const { data, error } = await sb.rpc("alarmas_del_dia", dia ? { dia } : {});
-  if (error) throw new Error(`Supabase: ${error.message}`);
+  if (error) throw falla(error);
   return data as LecturaAlarmas;
 }
 
@@ -107,7 +118,7 @@ export async function getAlarmas(dia: string | null = null): Promise<LecturaAlar
 export async function getOdometro(dia: string | null = null): Promise<LecturaOdometro> {
   const sb = getClient();
   const { data, error } = await sb.rpc("odometro_del_dia", dia ? { dia } : {});
-  if (error) throw new Error(`Supabase: ${error.message}`);
+  if (error) throw falla(error);
   return data as LecturaOdometro;
 }
 
@@ -119,6 +130,6 @@ export async function getGpsEstado(): Promise<{ actualizado: string | null }> {
     .select("actualizado")
     .eq("id", 1)
     .maybeSingle();
-  if (error) throw new Error(`Supabase: ${error.message}`);
+  if (error) throw falla(error);
   return { actualizado: data?.actualizado ?? null };
 }
