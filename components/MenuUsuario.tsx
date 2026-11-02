@@ -1,6 +1,6 @@
 "use client";
 // Menú de usuario de la barra superior: junta lo que se toca una vez y queda
-// (zoom del tablero, parámetros, tema, cerrar sesión) para que la barra no baje a una segunda
+// (zoom del tablero, parámetros, contraseña, tema, cerrar sesión) para que la barra no baje a una segunda
 // fila. Se cierra con clic afuera o con Escape.
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -49,6 +49,10 @@ export default function MenuUsuario() {
           <Link href="/parametros" className={`menu-usr-item${pathname === "/parametros" ? " active" : ""}`}
             role="menuitem" onClick={() => setAbierto(false)}>
             <span className="ic">⚙️</span> Parámetros
+          </Link>
+          <Link href="/cuenta" className={`menu-usr-item${pathname === "/cuenta" ? " active" : ""}`}
+            role="menuitem" onClick={() => setAbierto(false)}>
+            <span className="ic">🔑</span> Mi contraseña
           </Link>
           <button className="menu-usr-item" role="menuitem" onClick={toggle}>
             <span className="ic">{mode === "light" ? "🌙" : "☀️"}</span>
