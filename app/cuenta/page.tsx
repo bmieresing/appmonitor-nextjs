@@ -1,9 +1,9 @@
 "use client";
 // Cambiar la contraseña propia (menú de usuario → Mi contraseña). Antes no había
 // forma de hacerlo sin pasar por el panel de Supabase. Usa la sesión iniciada:
-// supabase.auth.updateUser solo toca al usuario logueado. Si el proyecto tiene
-// activada la protección de contraseñas filtradas, Supabase rechaza aquí mismo una
-// contraseña que aparezca en filtraciones públicas (error weak_password).
+// supabase.auth.updateUser solo toca al usuario logueado. weak_password lo devuelve
+// Supabase si no cumple los requisitos del proyecto (y, en plan Pro con la
+// protección de contraseñas filtradas activa, si aparece en filtraciones públicas).
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -13,7 +13,7 @@ const MINIMO = 8;
 function mensajeError(code: string | undefined): string {
   switch (code) {
     case "weak_password":
-      return "Esa contraseña es débil o aparece en filtraciones públicas. Elige otra.";
+      return "Esa contraseña es muy débil. Elige otra.";
     case "same_password":
       return "La contraseña nueva tiene que ser distinta de la actual.";
     case "reauthentication_needed":
