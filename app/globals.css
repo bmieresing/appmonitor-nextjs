@@ -177,7 +177,22 @@ body.pantalla .kpi-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 body.pantalla .kpi-value { font-size: 19px; }
 /* Nombres de chofer/centro: más grandes y no más gruesos (ya van en 700); a 720p
    escalado, una letra más gruesa empasta en vez de leerse mejor. */
-body.pantalla .entity-name { font-size: 17px; }
+body.pantalla .entity-name { font-size: 19px; }
+/* Letra chica: en la tele la página se ve a ~0,675 de su tamaño CSS, y con los
+   tamaños normales (11–13 px) quedaba en 7–9 px reales, gris sobre blanco: se veía
+   borrosa al lado del panel de alarmas nativo (12–15 px). Aquí todo queda en ~10 px
+   reales o más y los grises pasan al color de texto. Medido en la tele 2026-11-03. */
+body.pantalla .kpi-label { font-size: 15px; letter-spacing: 0; color: var(--text); }
+body.pantalla .kpi-legend { font-size: 15px; color: var(--text); }
+body.pantalla .tank-cap { font-size: 15px; color: var(--text); }
+body.pantalla .tank-sub { font-size: 14px; white-space: nowrap; color: var(--text); }
+body.pantalla .entity-route { font-size: 14px; font-weight: 700; }
+body.pantalla .section-title { font-size: 16px; }
+body.pantalla .tab-sw-btn { font-size: 15px; }
+body.pantalla .tab-sw-btn .n { font-size: 14px; }
+body.pantalla .chip, body.pantalla .chip-btn, body.pantalla .sw,
+body.pantalla .zoom-ctl .zoom-pct { font-size: 15px; }
+body.pantalla .prod-name { font-size: 15px; }
 /* Con el control remoto hay que ver qué botón de la barra tiene el foco */
 body.pantalla .icon-btn:focus-visible, body.pantalla .chip-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
