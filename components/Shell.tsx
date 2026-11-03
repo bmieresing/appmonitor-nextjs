@@ -180,6 +180,7 @@ function Content({ children }: { children: React.ReactNode }) {
 function Marco({ children }: { children: React.ReactNode }) {
   const { snap, error } = useSnap();
   const { listo } = useZoom();
+  const pathname = usePathname();
   if (!listo || (!snap && !error)) {
     return <div className="estado estado-pantalla"><p className="muted">Cargando…</p></div>;
   }
@@ -187,8 +188,9 @@ function Marco({ children }: { children: React.ReactNode }) {
     <div className="app">
       <TopBar />
       <Content>{children}</Content>
-      {/* Fuera de .content: en /pantalla no le toca el zoom de la página. */}
-      <AvisosAlarma />
+      {/* En /pantalla (la tele) no: las alarmas las muestra y hace sonar el panel
+          nativo de Monitor Android, entre las cámaras. */}
+      {pathname !== "/pantalla" && <AvisosAlarma />}
     </div>
   );
 }
