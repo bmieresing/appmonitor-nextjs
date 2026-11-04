@@ -10,7 +10,8 @@
 // DOM y CSS, no canvas: el mismo criterio de las barras del resto del dashboard.
 // Las marcas son pocas por fila y así los nombres y las horas quedan nítidos a
 // cualquier zoom, y el detalle es HTML seleccionable.
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { estiloRuta } from "@/components/CentroColores";
 import { useTheme } from "@/components/ThemeProvider";
 import { useAlarmas } from "@/components/useAlarmas";
@@ -51,11 +52,43 @@ function claseDe(ev: EventoVisita): string {
 /** Detalle de una tanda de visitas. Es el MISMO panel para un grupo y para un punto
  *  suelto: una visita sola no es un caso aparte, es una tanda de una, y leerla en
  *  otro formato obligaba a cambiar de idioma según cuán apretada quedó la ruta. */
-function PopVisitas({ eventos, t }: { eventos: EventoVisita[]; t: Tokens }) {
+function PopVisitas({ eventos, t, ancla, lado }: {
+  eventos: EventoVisita[];
+  t: Tokens;
+  /** Recuadro sobre el que se abre: el panel se ubica contra su posición en pantalla. */
+  ancla: HTMLElement | null;
+  lado: "centro" | "der" | "izq";
+}) {
   const desde = eventos[0].min;
   const hasta = eventos[eventos.length - 1].min;
-  return (
-    <div className="tl-grupo-pop" onClick={(e) => e.stopPropagation()}>
+
+  // El panel va en un portal con position: fixed, no adentro del recuadro: el pie del
+  // modal del mapa tiene overflow (scroll vertical) y recortaba todo lo que se
+  // desplegaba hacia arriba — una tanda de 9 mostraba 4. Fuera de ese contenedor se
+  // abre sobre el mapa, con el alto que haya entre el recuadro y el borde de arriba.
+  const [estilo, setEstilo] = useState<React.CSSProperties | null>(null);
+  useLayoutEffect(() => {
+    if (!ancla) return;
+    const ubicar = () => {
+      const r = ancla.getBoundingClientRect();
+      const base: React.CSSProperties = {
+        bottom: window.innerHeight - r.top + 7,
+        maxHeight: Math.max(120, r.top - 7 - 8),
+      };
+      if (lado === "der") setEstilo({ ...base, right: window.innerWidth - r.right - 8 });
+      else if (lado === "izq") setEstilo({ ...base, left: r.left - 8 });
+      else setEstilo({ ...base, left: r.left + r.width / 2, transform: "translateX(-50%)" });
+    };
+    ubicar();
+    // Si el pie se scrollea o la ventana cambia de tamaño, el recuadro se mueve.
+    window.addEventListener("scroll", ubicar, true);
+    window.addEventListener("resize", ubicar);
+    return () => { window.removeEventListener("scroll", ubicar, true); window.removeEventListener("resize", ubicar); };
+  }, [ancla, lado]);
+
+  if (!ancla || !estilo) return null;
+  return createPortal(
+    <div className="tl-grupo-pop" style={estilo} onClick={(e) => e.stopPropagation()}>
       <div className="tl-grupo-pop-tit">
         {desde === hasta ? hhmm(desde) : `${hhmm(desde)}–${hhmm(hasta)}`}
         <span> · {eventos.length} {eventos.length === 1 ? "visita" : "visitas"}</span>
@@ -72,7 +105,8 @@ function PopVisitas({ eventos, t }: { eventos: EventoVisita[]; t: Tokens }) {
           </span>
         </div>
       ))}
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -130,6 +164,8 @@ export default function TimelineRutas({
   // el click lo fija, para poder leerlo con calma o irse con el mouse a otra cosa.
   const [abiertoId, setAbiertoId] = useState<string | null>(null);
   const [hoverId, setHoverId] = useState<string | null>(null);
+  // Elemento de cada recuadro, para ubicar su panel (que va en un portal).
+  const anclas = useRef(new Map<string, HTMLSpanElement>());
 
   const grupos = useMemo(
     () => new Map(filas.map((f) => [f.ruta.id, agruparVisitas(f.eventos, ventana)] as const)),
@@ -272,12 +308,13 @@ export default function TimelineRutas({
                   // Cerca de un borde, el detalle se abre hacia adentro: centrado se salía
                   // del contenedor, le hacía aparecer el scroll, el track se angostaba y la
                   // marca se corría bajo el mouse (abría y cerraba en loop).
-                  const lado = pos > 65 ? " pop-der" : pos < 35 ? " pop-izq" : "";
+                  const lado = pos > 65 ? "der" : pos < 35 ? "izq" : "centro";
                   const atenuado = cursor !== null && g.min > cursor;
                   const visible = abiertoId === id || hoverId === id;
 
                   return (
-                    <span key={gi} className={`tl-grupo${visible ? " abierto" : ""}${lado}`} style={{ left: izq }}
+                    <span key={gi} className={`tl-grupo${visible ? " abierto" : ""}`} style={{ left: izq }}
+                      ref={(el) => { if (el) anclas.current.set(id, el); else anclas.current.delete(id); }}
                       onMouseEnter={() => setHoverId(id)}
                       onMouseLeave={() => setHoverId((h) => (h === id ? null : h))}>
                       <button className="tl-grupo-btn"
@@ -291,7 +328,7 @@ export default function TimelineRutas({
                         </span>
                       </button>
 
-                      {visible && <PopVisitas eventos={g.eventos} t={t} />}
+                      {visible && <PopVisitas eventos={g.eventos} t={t} ancla={anclas.current.get(id) ?? null} lado={lado} />}
                     </span>
                   );
                 })}
