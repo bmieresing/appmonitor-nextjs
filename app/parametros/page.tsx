@@ -1,9 +1,71 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSnap } from "@/components/SnapshotContext";
 import { useTheme } from "@/components/ThemeProvider";
 import { useCentroColores, estiloRuta, COLOR_CENTRO_DEFAULT } from "@/components/CentroColores";
+import { createClient } from "@/lib/supabase/client";
 import { miles } from "@/lib/format";
+
+// Canal del grabador Dahua de cada cámara de la tele de la oficina (Monitor Android).
+// Se guarda en Supabase (monitor_pantalla_camara) y la tele lo lee por
+// /api/pantalla/camaras: cambia sola en hasta un minuto, sin reinstalar la app.
+const CANALES = Array.from({ length: 15 }, (_, i) => i + 1);
+const POSICIONES: Record<number, string> = { 1: "Cámara de arriba", 2: "Cámara de abajo" };
+
+function CamarasTele() {
+  const [camaras, setCamaras] = useState<{ posicion: number; canal: number }[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const cargar = async () => {
+    const { data, error } = await createClient()
+      .from("monitor_pantalla_camara").select("posicion,canal").order("posicion", { ascending: true });
+    if (error) setError(error.message);
+    else { setCamaras(data ?? []); setError(null); }
+  };
+
+  useEffect(() => { cargar(); }, []);
+
+  const cambiar = async (posicion: number, canal: number) => {
+    setCamaras((cs) => cs.map((c) => (c.posicion === posicion ? { ...c, canal } : c)));   // optimista
+    const { error } = await createClient()
+      .from("monitor_pantalla_camara")
+      .update({ canal, updated_at: new Date().toISOString() })
+      .eq("posicion", posicion);
+    if (error) { setError(error.message); await cargar(); }
+  };
+
+  return (
+    <div style={{ marginTop: 22 }}>
+      <div className="section-title">📹 Cámaras de la tele de la oficina</div>
+      <p className="muted" style={{ margin: "0 0 10px", fontSize: 13 }}>
+        Canal del grabador que muestra cada cámara de Monitor Android. La tele toma el
+        cambio sola en hasta un minuto.
+      </p>
+      {error && <p className="status-err" style={{ marginBottom: 8 }}>No se pudo guardar: {error}</p>}
+      <div className="tbl-wrap">
+        <table className="data">
+          <thead><tr><th>Posición</th><th>Canal</th></tr></thead>
+          <tbody>
+            {camaras.map((c) => (
+              <tr key={c.posicion}>
+                <td>{POSICIONES[c.posicion] ?? `Cámara ${c.posicion}`}</td>
+                <td>
+                  <select
+                    className="col-filtro" value={c.canal}
+                    onChange={(e) => cambiar(c.posicion, Number(e.target.value))}
+                    aria-label={`Canal de ${POSICIONES[c.posicion] ?? c.posicion}`}
+                  >
+                    {CANALES.map((n) => <option key={n} value={n}>Canal {n}</option>)}
+                  </select>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
 function estadoClase(estado: string): string {
   if (estado.startsWith("✅")) return "status-ok";
@@ -206,6 +268,7 @@ export default function ParametrosPage() {
 
       <MapeoTripulacion />
       <ColoresCentro />
+      <CamarasTele />
     </div>
   );
 }

@@ -123,6 +123,18 @@ export async function getOdometro(dia: string | null = null): Promise<LecturaOdo
 }
 
 /** Última respuesta exitosa del Lambda GPS (chip "GPS hh:mm" del encabezado). */
+// Canal del grabador de cada cámara de la tele (posición 1 = arriba, 2 = abajo).
+// Se edita en Parámetros; la lee Monitor Android por /api/pantalla/camaras.
+export async function getPantallaCamaras(): Promise<{ posicion: number; canal: number }[]> {
+  const sb = getClient();
+  const { data, error } = await sb
+    .from("monitor_pantalla_camara")
+    .select("posicion,canal")
+    .order("posicion", { ascending: true });
+  if (error) throw falla(error);
+  return (data ?? []) as { posicion: number; canal: number }[];
+}
+
 export async function getGpsEstado(): Promise<{ actualizado: string | null }> {
   const sb = getClient();
   const { data, error } = await sb

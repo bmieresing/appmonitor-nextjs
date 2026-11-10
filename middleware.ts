@@ -12,7 +12,8 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // /api/gps/alarmas: la lista de alarmas que Monitor Android pinta entre las cámaras
-const PUBLICO_OFICINA = ["/pantalla", "/api/snapshot", "/api/gps/estado", "/api/gps/alarmas"];
+// /api/pantalla/camaras: el canal de cada cámara, que se edita en Parámetros
+const PUBLICO_OFICINA = ["/pantalla", "/api/snapshot", "/api/gps/estado", "/api/gps/alarmas", "/api/pantalla/camaras"];
 
 // IP pública del cliente. Vercel pisa estos headers con la IP real, así que el
 // cliente no puede falsificarlos.
